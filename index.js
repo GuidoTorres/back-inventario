@@ -7,11 +7,7 @@ const port = 3005;
 
 app.use(express.json());
 
-app.use(
-  cors({
-    origin: "*",
-  })
-);
+app.use(cors());
 
 app.get("/", (req, res) => {
   res.send("VISITA LA RUTA api-docs and github");
