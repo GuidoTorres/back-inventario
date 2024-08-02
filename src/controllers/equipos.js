@@ -1,14 +1,17 @@
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+const dayjs = require("dayjs");
 const db = require("../../app/models/index");
 const getEquipo = async (req, res) => {
   try {
     const equipo = await db.equipo.findAll();
 
     const format = equipo.map((item, i) => {
-      return{
-        nro: i+1,
-        ...item.dataValues
-      }
-    })
+      return {
+        nro: i + 1,
+        ...item.dataValues,
+      };
+    });
     return res.json({ data: format });
   } catch (error) {
     console.log(error);
@@ -17,8 +20,7 @@ const getEquipo = async (req, res) => {
 const getEquipoSelect = async (req, res) => {
   try {
     const equipo = await db.equipo.findAll({
-
-      attributes: ['id', 'sbn']
+      attributes: ["id", "sbn"],
     });
 
     return res.json({ data: equipo });
@@ -28,7 +30,6 @@ const getEquipoSelect = async (req, res) => {
 };
 const postEquipo = async (req, res) => {
   try {
-    
     await db.equipo.create(req.body);
 
     return res.status(200).json({ msg: "Registrado con éxito!" });
@@ -64,48 +65,67 @@ const getDatosPorTipo = async (tipoEquipo) => {
   try {
     // Filtrar los equipos por el tipo específico
     const equiposFiltrados = await db.equipo.findAll({
-      where: { tipo: tipoEquipo }
+      where: { tipo: tipoEquipo },
     });
 
-    // Contar los estados para el tipo específico
-    const conteos = {nuevo: 0, bueno: 0, regular: 0, malo: 0 };
+    // Diccionario de mapeo para estado_conserv
+    const estadoMap = {
+      1: 'bueno',
+      2: 'regular',
+      3: 'malo',
+      4: 'muyMalo',
+      5: 'nuevo',
+      6: 'chatarra',
+      7: 'raee'
+    };
 
-    equiposFiltrados.forEach(({ estado }) => {
-      if (['nuevo','bueno', 'regular', 'malo'].includes(estado.toLowerCase())) {
-        conteos[estado.toLowerCase()]++;
+    // Contar los estados para el tipo específico
+    const conteos = { nuevo: 0, bueno: 0, regular: 0, malo: 0, muyMalo: 0, chatarra: 0, raee: 0 };
+
+    equiposFiltrados.forEach(({ estado_conserv }) => {
+      const estadoTexto = estadoMap[estado_conserv];
+      if (estadoTexto) {
+        conteos[estadoTexto]++;
       }
     });
 
     // Formatear los datos para Chart.js usando el formato especificado
     const data = {
-      labels: ['Nuevo','Bueno', 'Regular', 'Malo'],
-      datasets: [{
-        label: `Cantidad`,
-        data: [conteos.nuevo,conteos.bueno, conteos.regular, conteos.malo],
-        backgroundColor: [
-          'rgba(91, 141, 196, 0.78)',
-          'rgba(120, 201, 150, 0.8)',
-          'rgba(228, 228, 125, 0.78)',
-          'rgba(145, 53, 73, 0.2)',
-
-        ],
-        borderColor: [
-          'rgba(91, 141, 196, 0.78)',
-          'rgba(120, 201, 150, 0.8)',
-          'rgba(228, 228, 125, 0.78)',
-          'rgba(145, 53, 73, 0.2)',
-
-        ],
-        borderWidth: 1
-      }]
+      labels: ["Nuevo", "Bueno", "Regular", "Malo", "Muy Malo", "Chatarra", "RAEE"],
+      datasets: [
+        {
+          label: `Cantidad`,
+          data: [conteos.nuevo, conteos.bueno, conteos.regular, conteos.malo, conteos.muyMalo, conteos.chatarra, conteos.raee],
+          backgroundColor: [
+            "rgba(91, 141, 196, 0.78)",  // Nuevo
+            "rgba(120, 201, 150, 0.8)",  // Bueno
+            "rgba(228, 228, 125, 0.78)", // Regular
+            "rgba(145, 53, 73, 0.2)",    // Malo
+            "rgba(255, 99, 132, 0.2)",   // Muy Malo
+            "rgba(54, 162, 235, 0.2)",   // Chatarra
+            "rgba(75, 192, 192, 0.2)"    // RAEE
+          ],
+          borderColor: [
+            "rgba(91, 141, 196, 1)",  // Nuevo
+            "rgba(120, 201, 150, 1)", // Bueno
+            "rgba(228, 228, 125, 1)", // Regular
+            "rgba(145, 53, 73, 1)",   // Malo
+            "rgba(255, 99, 132, 1)",  // Muy Malo
+            "rgba(54, 162, 235, 1)",  // Chatarra
+            "rgba(75, 192, 192, 1)"   // RAEE
+          ],
+          borderWidth: 1,
+        },
+      ],
     };
 
     return data;
   } catch (error) {
     console.error(error);
-    throw new Error('Error al obtener los datos');
+    throw new Error("Error al obtener los datos");
   }
 };
+
 const getEquiposPorAño = async () => {
   try {
     // Obtener todos los equipos
@@ -114,67 +134,157 @@ const getEquiposPorAño = async () => {
     // Crear un objeto para contar los equipos por año de ingreso
     const conteosPorAño = {};
 
-    equipos.forEach(({ ingreso }) => {
-      const año = ingreso; // Directamente usar el valor del campo ingreso
-      if (!conteosPorAño[año]) {
+    equipos.forEach(({ fecha_compra }) => {
+      const año = dayjs(fecha_compra).format("YYYY"); // Directamente usar el valor del campo ingreso
+      if (!conteosPorAño[año] && año > 2009) {
         conteosPorAño[año] = 0; // Inicializar el conteo para ese año si aún no existe
       }
-      conteosPorAño[año]++; // Incrementar el conteo para el año
+      if(año > 2009){
+
+        conteosPorAño[año]++; // Incrementar el conteo para el año
+      }
     });
 
     // Preparar los datos para el gráfico
     const data = {
       labels: Object.keys(conteosPorAño), // Años como texto
-      datasets: [{
-        label: 'Cantidad de Equipos',
-        data: Object.values(conteosPorAño), // Cantidad de equipos por año
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.2)',
-          'rgba(54, 162, 235, 0.2)',
-          'rgba(255, 206, 86, 0.2)',
-          'rgba(75, 192, 192, 0.2)',
-          'rgba(153, 102, 255, 0.2)',
-          'rgba(255, 159, 64, 0.2)'
-        ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-          'rgba(255, 159, 64, 1)'
-        ],
-        borderWidth: 1
-      }]
+      datasets: [
+        {
+          label: "Cantidad de Equipos",
+          data: Object.values(conteosPorAño), // Cantidad de equipos por año
+          backgroundColor: [
+            "rgba(255, 99, 132, 0.2)",
+            "rgba(54, 162, 235, 0.2)",
+            "rgba(255, 206, 86, 0.2)",
+            "rgba(75, 192, 192, 0.2)",
+            "rgba(153, 102, 255, 0.2)",
+            "rgba(255, 159, 64, 0.2)",
+          ],
+          borderColor: [
+            "rgba(255, 99, 132, 1)",
+            "rgba(54, 162, 235, 1)",
+            "rgba(255, 206, 86, 1)",
+            "rgba(75, 192, 192, 1)",
+            "rgba(153, 102, 255, 1)",
+            "rgba(255, 159, 64, 1)",
+          ],
+          borderWidth: 1,
+        },
+      ],
     };
 
     return data;
   } catch (error) {
     console.error(error);
-    throw new Error('Error al obtener los datos por año de ingreso');
+    throw new Error("Error al obtener los datos por año de ingreso");
   }
 };
-
-
 // La función getEquipo sigue siendo la misma, llamando a getDatosPorTipo para cada tipo de equipo.
-
-
 const getEquipoChart = async (req, res) => {
   try {
-    // Obtener los datos para 'Impresoras'
-    const datosImpresoras = await getDatosPorTipo('Impresora');
-    // Obtener los datos para 'CPU'
-    const datosCPU = await getDatosPorTipo('Cpu');
-    const datosLaptop = await getDatosPorTipo('Laptop');
-    const datosMonitor = await getDatosPorTipo('Monitor');
-    const equiposAnio = await getEquiposPorAño()
-    return res.json({ impresoras: datosImpresoras, cpu: datosCPU, laptop: datosLaptop, monitor: datosMonitor, anio: equiposAnio });
+    const datosImpresoras = await getDatosPorTipo("Impresora");
+    const datosCPU = await getDatosPorTipo("Cpu");
+    const datosLaptop = await getDatosPorTipo("Laptop");
+    const datosMonitor = await getDatosPorTipo("Monitor");
+    const equiposAnio = await getEquiposPorAño();
+    return res.json({
+      impresoras: datosImpresoras,
+      cpu: datosCPU,
+      laptop: datosLaptop,
+      monitor: datosMonitor,
+      anio: equiposAnio,
+    });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 
+const equiposBienesSiga = async (req, res) => {
+  try {
+    const response = await fetch("http://localhost:3001/api/v1/bienes");
+    const trabajadores = await db.trabajador.findAll({ attributes: ["id", "dni", "codigo"] });
+    const externalData = await response.json();
+
+    const existingData = await db.equipo.findAll();
+    const existingNames = existingData.map((item) => item.secuencia); // Ajusta esto según los atributos que quieras comparar
+
+    // Crear un mapa de trabajadores para una búsqueda rápida
+    const trabajadorMap = new Map();
+    trabajadores.forEach(trabajador => {
+      trabajadorMap.set(trabajador.codigo, trabajador.id);
+    });
+
+    // Filtrar los datos para encontrar los nuevos que no están en la tabla equipo
+    const newData = externalData?.data?.filter(
+      (item) => !existingNames.includes(item.secuencia)
+    ).map(item => {
+      // Buscar el trabajador_id basado en el codigo
+      const trabajadorId = trabajadorMap.get(item.empleado_final) || null;
+      return {
+        ...item,
+        trabajador_id: trabajadorId
+      };
+    });
+    // Insertar los nuevos datos en la tabla equipo
+    await db.equipo.bulkCreate(newData);
+
+    // Enviar la respuesta al cliente
+    return res.json({
+      message: "Sincronización completa",
+      newRecords: newData.length,
+    });
+  } catch (error) {
+    // Manejar errores
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Error fetching data", error: error.message });
+  }
+};
+
+const asignarBienesTrabajador = async (req,res) =>{
+  try {
+    const bienes = await db.equipo.findAll({attributes:["id", "empleado_final", "descripcion"]})
+    const trabajadores = await db.trabajador.findAll({attributes:["id", "dni", "codigo"]})
+
+    console.log(`Total bienes recuperados: ${bienes.length}`);
+    console.log(`Total trabajadores recuperados: ${trabajadores.length}`);
+
+    // Crear un mapa de trabajadores para una búsqueda rápida
+    const trabajadorMap = new Map();
+    trabajadores.forEach(trabajador => {
+      trabajadorMap.set(trabajador.codigo, trabajador.id);
+    });
+
+    // Almacenar las asignaciones propuestas
+    const asignaciones = [];
+    // Iterar sobre los bienes y asignar trabajador_id cuando corresponda
+    bienes.forEach(bien => {
+      const trabajadorId = trabajadorMap.get(bien.empleado_final);
+      if (trabajadorId) {
+        asignaciones.push({
+          bienId: bien.id,
+          descripcion: bien.descripcion,
+          trabajadorId: trabajadorId
+        });
+      }
+    });
+
+    console.log(`Total asignaciones: ${asignaciones.length}`);
+
+    // Devolver las asignaciones propuestas
+    res.status(200).json({ asignaciones });
+
+
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Error fetching data", error: error.message });
+
+  }
+}
 
 module.exports = {
   getEquipo,
@@ -182,5 +292,7 @@ module.exports = {
   postEquipo,
   updateEquipo,
   deleteEquipo,
-  getEquipoSelect
+  getEquipoSelect,
+  equiposBienesSiga,
+  asignarBienesTrabajador
 };

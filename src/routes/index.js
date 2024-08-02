@@ -8,7 +8,7 @@ const unidadRouter = require("./unidad")
 const baseRouter = require("./base")
 const usuarioRouter = require("./usuario")
 const authRouter = require("./auth")
-
+const marcasRouter = require("./marcas")
 
 function routerApi(app){
 
@@ -21,6 +21,7 @@ function routerApi(app){
     router.use('/unidad', unidadRouter)
     router.use('/base', baseRouter)
     router.use('/usuario', usuarioRouter)
+    router.use('/marcas', marcasRouter)
     router.use('/auth', authRouter)
 
 

@@ -24,7 +24,20 @@ module.exports = (sequelize, DataTypes) =>{
         sbn: DataTypes.STRING,
         estado: DataTypes.STRING,
         descripcion: DataTypes.STRING,
-        trabajador_id: DataTypes.INTEGER
+        trabajador_id: DataTypes.INTEGER,
+        secuencia: DataTypes.INTEGER,
+        nomb_depend: DataTypes.STRING,
+        nomb_sede: DataTypes.STRING,
+        modelo: DataTypes.STRING,
+        caracteristicas: DataTypes.STRING,
+        estado_conserv: DataTypes.STRING,
+        estado_actual: DataTypes.STRING,
+        nro_orden: DataTypes.STRING,
+        fecha_compra: DataTypes.DATE,
+        valor_compra: DataTypes.FLOAT,
+        nro_serie: DataTypes.STRING,
+        codigo_barra: DataTypes.STRING,
+        empleado_final: DataTypes.STRING
     
     }, {timestamps: true, tableName: "equipo", freezeTableName: true})
     equipos.associate = function(models) {

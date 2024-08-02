@@ -12,6 +12,8 @@ module.exports = (sequelize, DataTypes) => {
     dni: DataTypes.STRING,
     cargo_id: DataTypes.INTEGER,
     estado: DataTypes.BOOLEAN,
+    de_func: DataTypes.STRING,
+    codigo: DataTypes.STRING
   }, {timestamps: true, tableName: "trabajador", freezeTableName: true});
 
   Trabajadores.associate = function (models) {
