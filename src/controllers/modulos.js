@@ -1,34 +1,28 @@
 const db = require("../../app/models/index");
-const getCargo = async (req, res) => {
+const getModulos = async (req, res) => {
   try {
-    const cargo = await db.cargo.findAll({
-      include: [
-        {
-          model: db.unidad,
-          include: [{ model: db.base, include: [{ model: db.dependencia }] }],
-        },
-      ],
+    const modulos = await db.modulos.findAll({
+      attributes:["id", "nombre"],
+
     });
-    return res.json({ data: cargo });
+    return res.json({ data: modulos });
   } catch (error) {
     console.log(error);
   }
 };
-const postCargo = async (req, res) => {
+const postModulos = async (req, res) => {
   try {
-    console.log(req.body);
-    await db.cargos.create(req.body);
-
+    await db.modulos.create(req.body);
     return res.status(200).json({ msg: "Registrado con éxito!" });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ msg: "No se pudo registrar." });
   }
 };
-const updateCargo = async (req, res) => {
+const updateModulos = async (req, res) => {
   try {
     const id = req.params.id;
-    await db.cargos.update(req.body, { where: { id: id } });
+    await db.modulos.update(req.body, { where: { id: id } });
 
     return res.status(200).json({ msg: "Actualizado con éxito!" });
   } catch (error) {
@@ -36,10 +30,10 @@ const updateCargo = async (req, res) => {
     return res.status(500).json({ msg: "No se pudo actualizar." });
   }
 };
-const deleteCargo = async (req, res) => {
+const deleteModulos = async (req, res) => {
   try {
     const id = req.params.id;
-    await db.cargos.destroy({ where: { id: id } });
+    await db.modulos.destroy({ where: { id: id } });
 
     return res.status(200).json({ msg: "Eliminado con éxito!" });
   } catch (error) {
@@ -49,8 +43,8 @@ const deleteCargo = async (req, res) => {
 };
 
 module.exports = {
-  getCargo,
-  postCargo,
-  updateCargo,
-  deleteCargo,
+  getModulos,
+  postModulos,
+  updateModulos,
+  deleteModulos,
 };

@@ -6,19 +6,32 @@ const fetch = (...args) =>
 const getTrabajador = async (req, res) => {
   try {
     const trabajador = await db.trabajador.findAll({
-      where:{estado: true},
-      include: [{ model: db.equipo, attributes:["sbn", "descripcion", "modelo", "estado", "estado_conserv", "trabajador_id"] }, { model: db.cargo }],
+      where: { estado: true },
+      include: [
+        {
+          model: db.equipo,
+          attributes: [
+            "sbn",
+            "descripcion",
+            "modelo",
+            "estado",
+            "estado_conserv",
+            "trabajador_id",
+          ],
+        },
+      ],
     });
-    const trabajadoresConIdEquipos = trabajador.map(trabajador => {
+    const trabajadoresConIdEquipos = trabajador.map((trabajador) => {
       const equiposConId = trabajador.equipos.map((equipo, index) => ({
         ...equipo.dataValues, // Asegúrate de usar dataValues para obtener los valores reales del objeto Sequelize
-        id: index+1 // Aquí 'id' puede ser el valor original o el índice como un identificador único temporal
+        id: index + 1, // Aquí 'id' puede ser el valor original o el índice como un identificador único temporal
       }));
       return {
         ...trabajador.dataValues,
-        equipos: equiposConId
+        equipos: equiposConId,
       };
     });
+
     return res.json({ data: trabajadoresConIdEquipos });
   } catch (error) {
     console.log(error);
@@ -26,7 +39,10 @@ const getTrabajador = async (req, res) => {
 };
 const getTrabajadorSelect = async (req, res) => {
   try {
-    const trabajador = await db.trabajador.findAll({});
+    const trabajador = await db.trabajador.findAll({
+      where: { estado: true },
+      attributes: ["id", "nombres", "apellido_paterno", "apellido_materno"],
+    });
 
     const format = trabajador.map((item) => {
       return {
@@ -90,10 +106,12 @@ const updateTrabajador = async (req, res) => {
 const updateTrabajadorEstado = async (req, res) => {
   try {
     const id = req.params.id;
-    const trabajador = await db.trabajador.findOne( { where: { id: id } })
+    const trabajador = await db.trabajador.findOne({ where: { id: id } });
 
-
-    await db.trabajador.update({estado:!trabajador.estado}, { where: { id: id } });
+    await db.trabajador.update(
+      { estado: !trabajador.estado },
+      { where: { id: id } }
+    );
 
     return res.status(200).json({ msg: "Actualizado con éxito!" });
   } catch (error) {
@@ -114,18 +132,21 @@ const deleteTrabajador = async (req, res) => {
 };
 const trabajadoresPlanilla = async (req, res) => {
   try {
-    const responsePlanilla = await fetch("http://localhost:3001/api/v1/planilla");
-    const responsePersonal = await fetch("http://localhost:3001/api/v1/personal");
+    const responsePlanilla = await fetch(
+      "http://localhost:3001/api/v1/planilla"
+    );
+    const responsePersonal = await fetch(
+      "http://localhost:3001/api/v1/personal"
+    );
 
     const planillaData = await responsePlanilla.json();
     const personalData = await responsePersonal.json();
     const existingData = await db.trabajador.findAll();
 
     const personalMap = new Map();
-    personalData.data.forEach(item => {
+    personalData.data.forEach((item) => {
       personalMap.set(item.docum_ident, item.empleado);
     });
-
 
     const formatExternalData = planillaData.data.map((item) => {
       return {
@@ -134,7 +155,7 @@ const trabajadoresPlanilla = async (req, res) => {
         apellido_paterno: item.AP_PATE,
         apellido_materno: item.AP_MATE,
         de_func: item.DE_FUNC,
-        codigo: personalMap.get(item.NU_DOCU) || null // Añadir el campo 'codigo' basado en la coincidencia
+        codigo: personalMap.get(item.NU_DOCU) || null, // Añadir el campo 'codigo' basado en la coincidencia
       };
     });
 
@@ -167,5 +188,5 @@ module.exports = {
   updateTrabajador,
   deleteTrabajador,
   trabajadoresPlanilla,
-  updateTrabajadorEstado
+  updateTrabajadorEstado,
 };

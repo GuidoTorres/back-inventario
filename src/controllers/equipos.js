@@ -134,8 +134,8 @@ const getEquiposPorAño = async () => {
     // Crear un objeto para contar los equipos por año de ingreso
     const conteosPorAño = {};
 
-    equipos.forEach(({ fecha_compra }) => {
-      const año = dayjs(fecha_compra).format("YYYY"); // Directamente usar el valor del campo ingreso
+    equipos.forEach(({ fecha_ingreso }) => {
+      const año = dayjs(fecha_ingreso).format("YYYY"); // Directamente usar el valor del campo ingreso
       if (!conteosPorAño[año] && año > 2009) {
         conteosPorAño[año] = 0; // Inicializar el conteo para ese año si aún no existe
       }
@@ -179,7 +179,6 @@ const getEquiposPorAño = async () => {
     throw new Error("Error al obtener los datos por año de ingreso");
   }
 };
-// La función getEquipo sigue siendo la misma, llamando a getDatosPorTipo para cada tipo de equipo.
 const getEquipoChart = async (req, res) => {
   try {
     const datosImpresoras = await getDatosPorTipo("Impresora");
@@ -202,12 +201,12 @@ const getEquipoChart = async (req, res) => {
 
 const equiposBienesSiga = async (req, res) => {
   try {
-    const response = await fetch("http://localhost:3001/api/v1/bienes");
+    const response = await fetch("http://localhost:3001/api/v1/bienes/prueba");
     const trabajadores = await db.trabajador.findAll({ attributes: ["id", "dni", "codigo"] });
     const externalData = await response.json();
 
     const existingData = await db.equipo.findAll();
-    const existingNames = existingData.map((item) => item.secuencia); // Ajusta esto según los atributos que quieras comparar
+    const existingMap = new Map(existingData.map(item => [item.secuencia, item]));
 
     // Crear un mapa de trabajadores para una búsqueda rápida
     const trabajadorMap = new Map();
@@ -215,24 +214,49 @@ const equiposBienesSiga = async (req, res) => {
       trabajadorMap.set(trabajador.codigo, trabajador.id);
     });
 
-    // Filtrar los datos para encontrar los nuevos que no están en la tabla equipo
-    const newData = externalData?.data?.filter(
-      (item) => !existingNames.includes(item.secuencia)
-    ).map(item => {
-      // Buscar el trabajador_id basado en el codigo
+    // Filtrar y preparar los datos para crear o actualizar
+    const toCreate = [];
+    const toUpdate = [];
+
+    externalData?.data?.forEach(item => {
       const trabajadorId = trabajadorMap.get(item.empleado_final) || null;
-      return {
-        ...item,
-        trabajador_id: trabajadorId
+      const newItem = { 
+        ...item, 
+        trabajador_id: trabajadorId,
+        estado: item.estado_conserv // Mapeo directo del estado_conserv del SIGA al estado de tu base de datos
       };
+
+      if (existingMap.has(item.secuencia)) {
+        const existingItem = existingMap.get(item.secuencia);
+        // Verificar si hay cambios en los campos relevantes
+        if (
+          existingItem.estado !== newItem.estado || // Comparar estado con estado_conserv
+          existingItem.trabajador_id !== newItem.trabajador_id // Comparar trabajador_id con empleado_final
+        ) {
+          // Si hay cambios, agrega a la lista de actualizaciones
+          toUpdate.push(newItem);
+        }
+      } else {
+        // Si no existe, agregar a la lista de nuevos registros
+        toCreate.push(newItem);
+      }
     });
+
     // Insertar los nuevos datos en la tabla equipo
-    await db.equipo.bulkCreate(newData);
+    if (toCreate.length > 0) {
+      await db.equipo.bulkCreate(toCreate);
+    }
+
+    // Actualizar los registros existentes si han cambiado
+    for (const item of toUpdate) {
+      await db.equipo.update(item, { where: { secuencia: item.secuencia } });
+    }
 
     // Enviar la respuesta al cliente
     return res.json({
       message: "Sincronización completa",
-      newRecords: newData.length,
+      newRecords: toCreate.length,
+      updatedRecords: toUpdate.length,
     });
   } catch (error) {
     // Manejar errores
@@ -242,6 +266,7 @@ const equiposBienesSiga = async (req, res) => {
       .json({ message: "Error fetching data", error: error.message });
   }
 };
+
 
 const asignarBienesTrabajador = async (req,res) =>{
   try {

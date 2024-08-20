@@ -1,26 +1,27 @@
 const db = require("../../app/models/index");
-const getUnidad = async (req, res) => {
+const getSedes = async (req, res) => {
   try {
-    const unidad = await db.unidad.findAll();
-    return res.json({ data: unidad });
+    const sedes = await db.sedes.findAll({
+      attributes:["id", "nombre"],
+    });
+    return res.json({ data: sedes });
   } catch (error) {
     console.log(error);
   }
 };
-const postUnidad = async (req, res) => {
+const postSedes = async (req, res) => {
   try {
-    
-    await db.unidad.create(req.body);
+    await db.sedes.create(req.body);
     return res.status(200).json({ msg: "Registrado con éxito!" });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ msg: "No se pudo registrar." });
   }
 };
-const updateUnidad = async (req, res) => {
+const updateSedes = async (req, res) => {
   try {
     const id = req.params.id;
-    await db.unidad.update(req.body, { where: { id: id } });
+    await db.sedes.update(req.body, { where: { id: id } });
 
     return res.status(200).json({ msg: "Actualizado con éxito!" });
   } catch (error) {
@@ -28,10 +29,10 @@ const updateUnidad = async (req, res) => {
     return res.status(500).json({ msg: "No se pudo actualizar." });
   }
 };
-const deleteUnidad = async (req, res) => {
+const deleteSedes = async (req, res) => {
   try {
     const id = req.params.id;
-    await db.unidad.destroy({ where: { id: id } });
+    await db.sedes.destroy({ where: { id: id } });
 
     return res.status(200).json({ msg: "Eliminado con éxito!" });
   } catch (error) {
@@ -41,8 +42,8 @@ const deleteUnidad = async (req, res) => {
 };
 
 module.exports = {
-  getUnidad,
-  postUnidad,
-  updateUnidad,
-  deleteUnidad,
+  getSedes,
+  postSedes,
+  updateSedes,
+  deleteSedes,
 };
