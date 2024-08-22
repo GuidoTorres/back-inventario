@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) =>{
         tipo: DataTypes.STRING,
         marca: DataTypes.STRING,
         sbn: DataTypes.STRING,
+        sbn_cpu: DataTypes.STRING,
         fecha_ingreso: DataTypes.STRING,
         proveedor: DataTypes.STRING,
         procesador: DataTypes.STRING,
@@ -39,6 +40,8 @@ module.exports = (sequelize, DataTypes) =>{
         almacenamiento: DataTypes.STRING,
         unidad_optica: DataTypes.BOOLEAN,
         antivirus: DataTypes.BOOLEAN,
+        windows: DataTypes.BOOLEAN,
+
         version_windows: DataTypes.STRING, // licenciado o crackeado
         sistema_operativo: DataTypes.STRING,
         ofimatica: DataTypes.STRING, // licenciado o crackeado
@@ -60,6 +63,8 @@ module.exports = (sequelize, DataTypes) =>{
         anexo: DataTypes.STRING,
         sede_id: DataTypes.INTEGER,
         modulo_id: DataTypes.INTEGER,
+        dependencia_id: DataTypes.INTEGER,
+        sub_dependencia_id: DataTypes.INTEGER,
         dependencia_id: DataTypes.INTEGER,
         sub_dependencia_id: DataTypes.INTEGER, 
         createdAt: DataTypes.DATE,

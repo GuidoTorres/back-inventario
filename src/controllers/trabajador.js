@@ -6,7 +6,6 @@ const fetch = (...args) =>
 const getTrabajador = async (req, res) => {
   try {
     const trabajador = await db.trabajador.findAll({
-      where: { estado: true },
       include: [
         {
           model: db.equipo,
@@ -37,6 +36,7 @@ const getTrabajador = async (req, res) => {
     console.log(error);
   }
 };
+
 const getTrabajadorSelect = async (req, res) => {
   try {
     const trabajador = await db.trabajador.findAll({
@@ -132,22 +132,20 @@ const deleteTrabajador = async (req, res) => {
 };
 const trabajadoresPlanilla = async (req, res) => {
   try {
-    const responsePlanilla = await fetch(
-      "http://localhost:3001/api/v1/planilla"
-    );
-    const responsePersonal = await fetch(
-      "http://localhost:3001/api/v1/personal"
-    );
+    const responsePlanilla = await fetch("http://localhost:3001/api/v1/planilla");
+    const responsePersonal = await fetch("http://localhost:3001/api/v1/personal");
 
     const planillaData = await responsePlanilla.json();
     const personalData = await responsePersonal.json();
     const existingData = await db.trabajador.findAll();
 
+    // Crear un mapa de personal basado en el DNI
     const personalMap = new Map();
     personalData.data.forEach((item) => {
       personalMap.set(item.docum_ident, item.empleado);
     });
 
+    // Formatear los datos externos
     const formatExternalData = planillaData.data.map((item) => {
       return {
         dni: item.NU_DOCU,
@@ -155,22 +153,47 @@ const trabajadoresPlanilla = async (req, res) => {
         apellido_paterno: item.AP_PATE,
         apellido_materno: item.AP_MATE,
         de_func: item.DE_FUNC,
-        codigo: personalMap.get(item.NU_DOCU) || null, // Añadir el campo 'codigo' basado en la coincidencia
+        codigo: personalMap.get(item.NU_DOCU) || null,
       };
     });
 
-    const existingDni = existingData.map((item) => item.dni);
+    const existingMap = new Map(existingData.map(item => [item.dni, item]));
 
-    // Filtrar los datos para encontrar los nuevos que no están en la tabla trabajador
-    const newData = formatExternalData.filter(
-      (item) => !existingDni.includes(item.dni)
-    );
-    await db.trabajador.bulkCreate(newData);
+    const toCreate = [];
+    const toUpdate = [];
+
+    formatExternalData.forEach((item) => {
+      const existingItem = existingMap.get(item.dni);
+
+      if (existingItem) {
+        // Verificar si el cargo (de_func) ha cambiado
+        if (existingItem.de_func !== item.de_func) {
+          toUpdate.push(item);
+        }
+      } else {
+        // Si no existe, agregar a la lista de nuevos registros
+        toCreate.push(item);
+      }
+    });
+
+    // Insertar nuevos registros
+    if (toCreate.length > 0) {
+      await db.trabajador.bulkCreate(toCreate);
+    }
+
+    // Actualizar registros existentes si ha cambiado el cargo
+    for (const item of toUpdate) {
+      await db.trabajador.update(
+        { de_func: item.de_func }, // Solo actualiza el campo de_func
+        { where: { dni: item.dni } }
+      );
+    }
 
     // Enviar la respuesta al cliente
     return res.json({
-      message: "Sincronización completa",
-      newRecords: newData.length,
+      msg: "Actualización completa",
+      nuevosRegistros: toCreate.length,
+      registrosActualizados: toUpdate.length,
     });
   } catch (error) {
     // Manejar errores
@@ -180,6 +203,7 @@ const trabajadoresPlanilla = async (req, res) => {
       .json({ message: "Error fetching data", error: error.message });
   }
 };
+
 
 module.exports = {
   getTrabajador,
