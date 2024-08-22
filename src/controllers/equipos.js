@@ -340,7 +340,10 @@ const equiposBienesSiga = async (req, res) => {
     externalData?.data?.forEach((item, index) => {
       const fechaIngreso = new Date(item.fecha_ingreso);
       const trabajadorId = trabajadorMap.get(item.empleado_final) || null;
-      const sbnPrefix = item?.sbn?.slice(0, 8); // Obtener los primeros 8 dígitos del SBN
+
+      // Verificar si sbn existe antes de usar slice
+      const sbnPrefix = item.sbn ? item.sbn.slice(0, 8) : null;
+
       const newItem = {
         ...item,
         trabajador_id: trabajadorId,
@@ -350,6 +353,7 @@ const equiposBienesSiga = async (req, res) => {
       // Solo considerar los registros con fecha_ingreso en el año actual y que coincidan con los prefijos
       if (
         fechaIngreso.getFullYear() === currentYear &&
+        sbnPrefix &&
         sbnPrefixes.includes(sbnPrefix)
       ) {
         if (existingMap.has(item.secuencia)) {
@@ -396,6 +400,7 @@ const equiposBienesSiga = async (req, res) => {
       .json({ message: "Error fetching data", error: error.message });
   }
 };
+
 
 const asignarBienesTrabajador = async (req, res) => {
   try {
