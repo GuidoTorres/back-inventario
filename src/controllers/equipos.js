@@ -340,7 +340,7 @@ const equiposBienesSiga = async (req, res) => {
     externalData?.data?.forEach((item, index) => {
       const fechaIngreso = new Date(item.fecha_ingreso);
       const trabajadorId = trabajadorMap.get(item.empleado_final) || null;
-      const sbnPrefix = item.sbn.slice(0, 8); // Obtener los primeros 8 dígitos del SBN
+      const sbnPrefix = item?.sbn?.slice(0, 8); // Obtener los primeros 8 dígitos del SBN
       const newItem = {
         ...item,
         trabajador_id: trabajadorId,
