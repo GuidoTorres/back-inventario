@@ -132,8 +132,8 @@ const deleteTrabajador = async (req, res) => {
 };
 const trabajadoresPlanilla = async (req, res) => {
   try {
-    const responsePlanilla = await fetch("http://localhost:3001/api/v1/planilla");
-    const responsePersonal = await fetch("http://localhost:3001/api/v1/personal");
+    const responsePlanilla = await fetch("http://10.30.1.42:8084/api/v1/planilla");
+    const responsePersonal = await fetch("http://10.30.1.42:8084/api/v1/personal");
 
     const planillaData = await responsePlanilla.json();
     const personalData = await responsePersonal.json();

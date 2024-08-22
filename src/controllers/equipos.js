@@ -267,7 +267,7 @@ const getEquipoChart = async (req, res) => {
 
 const equiposBienesSiga = async (req, res) => {
   try {
-    const response = await fetch("http://localhost:3001/api/v1/bienes/prueba");
+    const response = await fetch("http://10.30.1.42:8084/api/v1/bienes/prueba");
     const trabajadores = await db.trabajador.findAll({
       attributes: ["id", "dni", "codigo"],
     });
