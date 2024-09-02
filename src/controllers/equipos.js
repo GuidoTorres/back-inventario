@@ -9,23 +9,9 @@ const fechaComparar = new Date("2024-08-26T00:00:00");
 
 const getEquipo = async (req, res) => {
   try {
-    const fechaComparar = new Date("2024-08-26T00:00:00");
 
     const equipo = await db.equipo.findAll({
-      where: {
-        [Op.or]: [
-          {
-            updatedAt: {
-              [Op.gte]: fechaComparar,
-            },
-          },
-          {
-            createdAt: {
-              [Op.gte]: fechaComparar,
-            },
-          },
-        ],
-      },
+
     });
 
     const format = equipo.map((item, i) => {
