@@ -47,6 +47,8 @@ module.exports = (sequelize, DataTypes) =>{
         ofimatica: DataTypes.STRING, // licenciado o crackeado
         office: DataTypes.STRING, //version 
         mac: DataTypes.STRING, 
+        generacion_procesador: DataTypes.STRING,// nuevoooooo
+        nombre_servidor: DataTypes.STRING, // nuevoooooo
 
         // campos que faltan impresoras
 
@@ -54,10 +56,12 @@ module.exports = (sequelize, DataTypes) =>{
         imagen: DataTypes.STRING,
         tamaño: DataTypes.STRING,
         ip: DataTypes.STRING,
+        subtipo_impresora: DataTypes.STRING,// nuevoooooo
 
         // Monitores
 
         tecnologia_monitor: DataTypes.STRING, // lcd, led
+        pulgadas: DataTypes.STRING,
         
         //telefonos
         anexo: DataTypes.STRING,

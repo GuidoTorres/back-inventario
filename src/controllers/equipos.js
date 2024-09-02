@@ -2,9 +2,31 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 const dayjs = require("dayjs");
 const db = require("../../app/models/index");
+const XLSX = require("xlsx");
+const path = require("path");
+const { Op } = require("sequelize");
+const fechaComparar = new Date("2024-08-26T00:00:00");
+
 const getEquipo = async (req, res) => {
   try {
-    const equipo = await db.equipo.findAll();
+    const fechaComparar = new Date("2024-08-26T00:00:00");
+
+    const equipo = await db.equipo.findAll({
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+    });
 
     const format = equipo.map((item, i) => {
       return {
@@ -17,38 +39,137 @@ const getEquipo = async (req, res) => {
     console.log(error);
   }
 };
-const getEquipos = async (req, res) => {
+
+const actualizarEquiposDesdeExcel = async (filePath) => {
   try {
-    const equipos = await db.equipo.findAll({
-      attributes: [
-        "descripcion", // Agrupar por descripción
-        [db.Sequelize.fn("LEFT", db.Sequelize.col("sbn"), 8), "prefijo_sbn"], // Ajusta a 8 si necesitas 8 dígitos
-        [db.Sequelize.fn("COUNT", db.Sequelize.col("sbn")), "total_equipos"],
-        [db.Sequelize.fn("GROUP_CONCAT", db.Sequelize.col("sbn")), "sbn_list"], // Agrupa y muestra todos los SBN correspondientes
-      ],
-      group: ["descripcion", "prefijo_sbn"], // Agrupar por descripción y prefijo SBN
-      order: [[db.Sequelize.literal("total_equipos"), "DESC"]],
-      raw: true, // Para que devuelva objetos planos
-    });
+    const workbook = XLSX.readFile(filePath);
+    const allRows = []; // Array para almacenar todas las filas de todas las hojas
+    const allEquiposData = [];
 
-    // Calcular el total de todos los bienes
-    const totalBienes = equipos.reduce(
-      (acc, item) => acc + parseInt(item.total_equipos, 10),
-      0
-    );
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
 
-    return res.json({
-      data: equipos,
-      totalBienes, // Incluir la suma total de todos los bienes
+      // Convertir la hoja a JSON utilizando la segunda fila como encabezado
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      const headers = data[1]; // Segunda fila como encabezados
+      const rows = data.slice(2); // Resto de las filas como datos
+
+      // Convertir cada fila en un objeto utilizando los encabezados
+      const formattedData = rows
+        .map((row) => {
+          let obj = {};
+          headers.forEach((header, index) => {
+            obj[header] = row[index];
+          });
+          return obj;
+        })
+        .filter((row) =>
+          Object.values(row).some(
+            (value) => value !== undefined && value !== null && value !== ""
+          )
+        );
+
+      // Agregar las filas procesadas al array general
+      allRows.push(...formattedData);
+    }
+    // Procesar cada fila en allRows
+    for (const row of allRows) {
+      const equipoData = {
+        tipo:
+          row["TIPO"] === "UNIDAD CENTRAL DE PROCESOS" ? "Cpu" : row["TIPO"],
+        subtipo_impresora: row["subtipo"],
+
+        marca: row["MARCA"] || null,
+        sbn: row["SBN"] || null,
+        sbn_cpu: row["SBN - CPU"] || null,
+        procesador:
+          row["Procesador y Velocidad (I5, Core2 Dual, P4, P3) (GHZ, MHZ)"] ||
+          null,
+        generacion_procesador: row["Generacion"] || null,
+        capacidad_disco_duro: row["ALMACENAMIENTO"] || null,
+        memoria_ram: row["Memoria (GB, MB)"] || null,
+        tarjeta_video: row["GRAFICA DEDICADA"] || null,
+        descripcion: row["TIPO"] || null,
+        trabajador_id: row["TRABAJADOR_ID"] || null,
+        modelo: row["MODELO"] || null,
+        usuario_actual: row["Usuario (Apellidos, Nombre)"] || null,
+        nombre_pc: row["Nombre  PC"] || null,
+        tipo_disco_duro: row["TIPO DISCO"] || null,
+        almacenamiento: row["ALMACENAMIENTO"] || null,
+        unidad_optica: row["UNIDAD OPTICA"] === "SI" ? true : false,
+        antivirus: row["ANTIVIRUS"] === "SI" ? true : false,
+        windows: row["WINDOWS"] === "SI" ? true : false,
+        version_windows: row["WINDOWS"] || null,
+        sistema_operativo: row["SISTEMA OPERATIVO"] || null,
+        ofimatica: row["OFIMATICA"] || null,
+        office: row["OFFICE"] || null,
+        mac: row["MAC"] || null,
+        suministro: row["SUMINISTRO"] || null,
+        tamaño: row["TAMAÑO"] || null,
+        ip: row["IP"] || null,
+        tecnologia_monitor: row["TECNOLOGIA_MONITOR"] || null,
+        pulgadas: row["PULGADAS"],
+        anexo: row["ANEXO"] || null,
+        sede_id: row["SEDE"] || null,
+        modulo_id: row["MODULO"] || null,
+        dependencia_id: row["Area"] || null,
+        sub_dependencia_id: row["Oficina"] || null,
+      };
+      if (
+        equipoData.tipo ||
+        equipoData.marca ||
+        equipoData.sbn ||
+        equipoData.sbn_cpu ||
+        equipoData.procesador ||
+        equipoData.capacidad_disco_duro ||
+        equipoData.memoria_ram ||
+        equipoData.nombre_pc ||
+        equipoData.usuario_actual // puedes añadir más campos aquí según la necesidad
+      ) {
+        allEquiposData.push(equipoData);
+        await db.equipo.upsert(equipoData);
+      }
+
+      // Aquí haces el upsert en la base de datos si fuera necesario
+    }
+
+    console.log("Actualización completa");
+    return allEquiposData; // Devolver todos los resultados
+  } catch (error) {
+    console.error("Error al actualizar los equipos:", error);
+    throw error; // Lanzar el error para que pueda ser capturado en el controlador
+  }
+};
+
+const excelEquipos = async (req, res) => {
+  try {
+    // Verifica si el archivo fue subido
+    if (!req.file) {
+      return res.status(400).send("No se ha subido ningún archivo.");
+    }
+
+    // Asegúrate de que el path es un string
+    const filePath = req.file.path;
+
+    // Llamar a la función para actualizar los equipos desde Excel
+    const data = await actualizarEquiposDesdeExcel(filePath);
+
+    // Devolver todos los datos procesados como respuesta
+    res.json({
+      cantidad: data.length,
+      data: data,
+      message: "Equipos actualizados con éxito.",
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error en el controlador excelEquipos:", error);
     res.status(500).json({
-      message: "Error al obtener las agrupaciones",
+      message: "Error al procesar el archivo Excel",
       error: error.message,
     });
   }
 };
+
 const getEquipoSelect = async (req, res) => {
   try {
     const equipo = await db.equipo.findAll({
@@ -106,9 +227,23 @@ const deleteEquipo = async (req, res) => {
 
 const getDatosPorTipo = async (tipoEquipo) => {
   try {
-    // Filtrar los equipos por el tipo específico
+
     const equiposFiltrados = await db.equipo.findAll({
-      where: { tipo: tipoEquipo },
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          { tipo: tipoEquipo },
+        ],
+      },
     });
 
     // Diccionario de mapeo para estado_conserv
@@ -116,10 +251,10 @@ const getDatosPorTipo = async (tipoEquipo) => {
       1: "bueno",
       2: "regular",
       3: "malo",
-      4: "muyMalo",
-      5: "nuevo",
-      6: "chatarra",
-      7: "raee",
+      // 4: "muyMalo",
+      4: "nuevo",
+      // 6: "chatarra",
+      // 7: "raee",
     };
 
     // Contar los estados para el tipo específico
@@ -128,9 +263,9 @@ const getDatosPorTipo = async (tipoEquipo) => {
       bueno: 0,
       regular: 0,
       malo: 0,
-      muyMalo: 0,
-      chatarra: 0,
-      raee: 0,
+      // muyMalo: 0,
+      // chatarra: 0,
+      // raee: 0,
     };
 
     equiposFiltrados.forEach(({ estado_conserv }) => {
@@ -147,9 +282,9 @@ const getDatosPorTipo = async (tipoEquipo) => {
         "Bueno",
         "Regular",
         "Malo",
-        "Muy Malo",
-        "Chatarra",
-        "RAEE",
+        // "Muy Malo",
+        // "Chatarra",
+        // "RAEE",
       ],
       datasets: [
         {
@@ -159,28 +294,106 @@ const getDatosPorTipo = async (tipoEquipo) => {
             conteos.bueno,
             conteos.regular,
             conteos.malo,
-            conteos.muyMalo,
-            conteos.chatarra,
-            conteos.raee,
+            // conteos.muyMalo,
+            // conteos.chatarra,
+            // conteos.raee,
           ],
           backgroundColor: [
             "rgba(91, 141, 196, 0.78)", // Nuevo
             "rgba(120, 201, 150, 0.8)", // Bueno
             "rgba(228, 228, 125, 0.78)", // Regular
-            "rgba(145, 53, 73, 0.2)", // Malo
-            "rgba(255, 99, 132, 0.2)", // Muy Malo
-            "rgba(54, 162, 235, 0.2)", // Chatarra
-            "rgba(75, 192, 192, 0.2)", // RAEE
+            "rgba(145, 53, 73, 0.35)", // Malo
+            // "rgba(255, 99, 132, 0.2)", // Muy Malo
+            // "rgba(54, 162, 235, 0.2)", // Chatarra
+            // "rgba(75, 192, 192, 0.2)", // RAEE
           ],
           borderColor: [
             "rgba(91, 141, 196, 1)", // Nuevo
             "rgba(120, 201, 150, 1)", // Bueno
             "rgba(228, 228, 125, 1)", // Regular
-            "rgba(145, 53, 73, 1)", // Malo
-            "rgba(255, 99, 132, 1)", // Muy Malo
-            "rgba(54, 162, 235, 1)", // Chatarra
-            "rgba(75, 192, 192, 1)", // RAEE
+            "rgba(145, 53, 73, 0.50)", // Malo
+            // "rgba(255, 99, 132, 1)", // Muy Malo
+            // "rgba(54, 162, 235, 1)", // Chatarra
+            // "rgba(75, 192, 192, 1)", // RAEE
           ],
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    return data;
+  } catch (error) {
+    console.error(error);
+    throw new Error("Error al obtener los datos");
+  }
+};
+const normalizarTexto = (texto) => {
+  return texto ? texto.trim().toUpperCase() : null;
+};
+
+const getImpresorasPorTipo = async (tipoEquipo, campoContar, label) => {
+  try {
+    // Obtener todos los registros filtrados por el tipo específico
+    const equiposFiltrados = await db.equipo.findAll({
+      where: {
+        tipo: tipoEquipo,
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      attributes: [campoContar], // Traer solo el campo que queremos contar
+    });
+    const conteos = {};
+
+    equiposFiltrados.forEach((equipo) => {
+      let valorCampoContar = normalizarTexto(equipo[campoContar]);
+
+      if (valorCampoContar) {
+        conteos[valorCampoContar] = (conteos[valorCampoContar] || 0) + 1;
+      }
+    });
+
+    // Definir colores predefinidos
+    const predefinedColors = [
+      "rgba(91, 141, 196, 0.78)", // Azul claro
+      "rgba(120, 201, 150, 0.8)", // Verde claro
+      "rgba(228, 228, 125, 0.78)", // Amarillo claro
+      "rgba(145, 53, 73, 0.35)", // Rojo oscuro
+      "rgba(255, 99, 132, 0.5)", // Rosa
+      "rgba(54, 162, 235, 0.5)", // Azul
+      "rgba(75, 192, 192, 0.5)", // Verde agua
+      "rgba(153, 102, 255, 0.5)", // Púrpura
+      "rgba(255, 159, 64, 0.5)", // Naranja
+    ];
+
+    const borderColorVariants = predefinedColors.map((color) =>
+      color.replace("0.5", "1")
+    );
+    const totalEquipos = equiposFiltrados.length;
+    // Preparar los datos para Chart.js
+    const data = {
+      labels: Object.keys(conteos), // Valores únicos del campo a contar
+      datasets: [
+        {
+          label: label,
+          data: Object.values(conteos), // Cantidades correspondientes
+          backgroundColor: predefinedColors.slice(
+            0,
+            Object.keys(conteos).length
+          ),
+          borderColor: borderColorVariants.slice(
+            0,
+            Object.keys(conteos).length
+          ),
           borderWidth: 1,
         },
       ],
@@ -245,6 +458,93 @@ const getEquiposPorAño = async () => {
     throw new Error("Error al obtener los datos por año de ingreso");
   }
 };
+
+const getEstadisticasProcesadores = async () => {
+  try {
+    // Obtener todos los registros
+    const equipos = await db.equipo.findAll({
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      attributes: ["procesador"],
+    });
+
+    console.log("procesadores");
+    console.log(equipos.length);
+
+    // Diccionario para almacenar los conteos
+    const conteos = {};
+
+    equipos.forEach(({ procesador }) => {
+      // Normalizar el nombre del procesador si es necesario
+      const procesadorNormalizado = normalizarProcesador(procesador);
+
+      // Crear un identificador único combinando procesador y generación
+      const identificador = `${procesadorNormalizado}`;
+
+      // Contar las ocurrencias
+      conteos[identificador] = (conteos[identificador] || 0) + 1;
+    });
+
+    const predefinedColors = [
+      "rgba(91, 141, 196, 0.78)", // Azul claro
+      "rgba(120, 201, 150, 0.8)", // Verde claro
+      "rgba(228, 228, 125, 0.78)", // Amarillo claro
+      "rgba(145, 53, 73, 0.35)", // Rojo oscuro
+      "rgba(255, 99, 132, 0.5)", // Rosa
+      "rgba(54, 162, 235, 0.5)", // Azul
+      "rgba(75, 192, 192, 0.5)", // Verde agua
+      "rgba(153, 102, 255, 0.5)", // Púrpura
+      "rgba(255, 159, 64, 0.5)", // Naranja
+    ];
+
+    const borderColorVariants = predefinedColors.map((color) =>
+      color.replace("0.5", "1")
+    );
+
+    // Preparar los datos para Chart.js
+    const data = {
+      labels: Object.keys(conteos), // Combinación de procesador y generación
+      datasets: [
+        {
+          label: `Cantidad`,
+          data: Object.values(conteos), // Cantidades correspondientes
+          backgroundColor: predefinedColors.slice(
+            0,
+            Object.keys(conteos).length
+          ),
+          borderColor: predefinedColors.slice(0, Object.keys(conteos).length),
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    return data;
+  } catch (error) {
+    console.error("Error al obtener estadísticas de procesadores:", error);
+    throw new Error("Error al obtener los datos");
+  }
+};
+
+// Ejemplo de función para normalizar el nombre del procesador
+const normalizarProcesador = (procesador) => {
+  if (!procesador) return "Sin Procesar";
+
+  // Normalización básica: convertir a mayúsculas y eliminar espacios adicionales
+  return procesador.trim().toUpperCase();
+};
+
 const getEquipoChart = async (req, res) => {
   try {
     const datosImpresoras = await getDatosPorTipo("Impresora");
@@ -252,12 +552,45 @@ const getEquipoChart = async (req, res) => {
     const datosLaptop = await getDatosPorTipo("Laptop");
     const datosMonitor = await getDatosPorTipo("Monitor");
     const equiposAnio = await getEquiposPorAño();
+    const tipoImpresora = await getImpresorasPorTipo(
+      "Impresora",
+      "subtipo_impresora",
+      "Cantidad"
+    );
+    const tipoImpresoraSuministro = await getImpresorasPorTipo(
+      "Impresora",
+      "suministro",
+      "Cantidad"
+    );
+    const tipoMonitor = await getImpresorasPorTipo(
+      "Monitor",
+      "tecnologia_monitor",
+      "Cantidad"
+    );
+    const monitorporPulgadas = await getImpresorasPorTipo(
+      "Monitor",
+      "pulgadas",
+      "Cantidad"
+    );
+    const cpusPorGeneracion = await getImpresorasPorTipo(
+      "Cpu",
+      "generacion_procesador",
+      "Cantidad"
+    );
+    const procesadores = await getEstadisticasProcesadores();
+
     return res.json({
+      monitorporPulgadas: monitorporPulgadas,
+      tipoImpresoraSuministro: tipoImpresoraSuministro,
+      procesadores: procesadores,
+      tipoMonitor: tipoMonitor,
+      tipoImpresora: tipoImpresora,
       impresoras: datosImpresoras,
       cpu: datosCPU,
       laptop: datosLaptop,
       monitor: datosMonitor,
       anio: equiposAnio,
+      cpusPorGeneracion:cpusPorGeneracion
     });
   } catch (error) {
     console.error(error);
@@ -265,6 +598,7 @@ const getEquipoChart = async (req, res) => {
   }
 };
 
+//para el actualizar de los equipos nuevos y subirlos al inventario
 const equiposBienesSiga = async (req, res) => {
   try {
     const response = await fetch("http://10.30.1.42:8084/api/v1/bienes/prueba");
@@ -347,7 +681,7 @@ const equiposBienesSiga = async (req, res) => {
       const newItem = {
         ...item,
         trabajador_id: trabajadorId,
-        estado: item.estado_conserv, // Mapeo directo del estado_conserv del SIGA al estado de tu base de datos
+        estado_conserv: item.estado_conserv, // Mapeo directo del estado_conserv del SIGA al estado de tu base de datos
       };
 
       // Solo considerar los registros con fecha_ingreso en el año actual y que coincidan con los prefijos
@@ -401,7 +735,6 @@ const equiposBienesSiga = async (req, res) => {
   }
 };
 
-
 const asignarBienesTrabajador = async (req, res) => {
   try {
     const bienes = await db.equipo.findAll({
@@ -446,6 +779,137 @@ const asignarBienesTrabajador = async (req, res) => {
   }
 };
 
+const getEquiposActualizados = async (req, res) => {
+  try {
+    const fechaComparar = new Date("2024-08-26T00:00:00");
+
+    const equipos = await db.equipo.findAll({
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+    });
+    return res.json({ contador: equipos.length, data: equipos });
+  } catch (error) {
+    console.log(error);
+  }
+};
+const getEstadisticasPorDependencia = async (req, res) => {
+  try {
+    const fechaComparar = "2024-08-26 00:00:00"; // Ajusta según la fecha que necesites
+
+    // Total por tipo
+    const totalPorTipo = await db.equipo.findAll({
+      attributes: [
+        'tipo',
+        [db.Sequelize.fn('COUNT', db.Sequelize.col('id')), 'cantidad'],
+      ],
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      group: ['tipo'],
+      raw: true,
+    });
+
+    // Total por dependencia
+    const totalPorDependencia = await db.equipo.findAll({
+      attributes: [
+        [db.Sequelize.col('dependencia.nombre'), 'nombre_dependencia'],
+        [db.Sequelize.fn('COUNT', db.Sequelize.col('equipo.id')), 'cantidad'],
+      ],
+      include: [
+        {
+          model: db.dependencias,
+          attributes: [],
+        },
+      ],
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      group: ['dependencia.nombre'],
+      raw: true,
+    });
+
+    // Total por tipo agrupado por dependencia
+    const totalPorTipoPorDependencia = await db.equipo.findAll({
+      attributes: [
+        [db.Sequelize.col('dependencia.nombre'), 'nombre_dependencia'],
+        'tipo',
+        [db.Sequelize.fn('COUNT', db.Sequelize.col('equipo.id')), 'cantidad'],
+      ],
+      include: [
+        {
+          model: db.dependencias,
+          attributes: [],
+        },
+      ],
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      group: ['dependencia.nombre', 'tipo'],
+      order: [[db.Sequelize.col('dependencia.nombre'), 'ASC']], // Ordena por nombre de la dependencia en orden ascendente
+    });
+
+    res.json({
+      totalPorTipo,
+      totalPorDependencia,
+      totalPorTipoPorDependencia: totalPorTipoPorDependencia,
+    });
+  } catch (error) {
+    console.error("Error al obtener estadísticas:", error);
+    res.status(500).json({ error: "Error al obtener estadísticas" });
+  }
+};
+
+
+
+
+
+
+
 module.exports = {
   getEquipo,
   getEquipoChart,
@@ -456,4 +920,8 @@ module.exports = {
   getEquipoSelect,
   equiposBienesSiga,
   asignarBienesTrabajador,
+  excelEquipos,
+  getEquiposActualizados,
+  getImpresorasPorTipo,
+  getEstadisticasPorDependencia
 };
