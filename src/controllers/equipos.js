@@ -5,14 +5,11 @@ const db = require("../../app/models/index");
 const XLSX = require("xlsx");
 const path = require("path");
 const { Op } = require("sequelize");
-const fechaComparar = new Date("2024-08-26T00:00:00");
+const fechaComparar = new Date("2024-08-27T00:00:00");
 
 const getEquipo = async (req, res) => {
   try {
-
-    const equipo = await db.equipo.findAll({
-
-    });
+    const equipo = await db.equipo.findAll({});
 
     const format = equipo.map((item, i) => {
       return {
@@ -213,7 +210,6 @@ const deleteEquipo = async (req, res) => {
 
 const getDatosPorTipo = async (tipoEquipo) => {
   try {
-
     const equiposFiltrados = await db.equipo.findAll({
       where: {
         [Op.or]: [
@@ -450,6 +446,7 @@ const getEstadisticasProcesadores = async () => {
     // Obtener todos los registros
     const equipos = await db.equipo.findAll({
       where: {
+        tipo: "Cpu",
         [Op.or]: [
           {
             updatedAt: {
@@ -565,6 +562,58 @@ const getEquipoChart = async (req, res) => {
     );
     const procesadores = await getEstadisticasProcesadores();
 
+    // Calcular las cantidades totales
+    const cantidadImpresoras = datosImpresoras.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+    const cantidadCPU = datosCPU.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+    const cantidadLaptop = datosLaptop.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+    const cantidadMonitor = datosMonitor.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+    const procesadoresCantidad = procesadores.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+
+    const cpusPorGeneracionCantidad = cpusPorGeneracion.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+
+    const impresoraPorTipoCantidad = tipoImpresora.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+
+    const tipoImpresoraSuministroCantidad = tipoImpresoraSuministro.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+
+    const impresorasCantidad = datosImpresoras.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+
+    const tipoMonitorCantidad = tipoMonitor.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+    
+    const monitorporPulgadasCantidad = monitorporPulgadas.datasets[0].data.reduce(
+      (total, num) => total + num,
+      0
+    );
+
     return res.json({
       monitorporPulgadas: monitorporPulgadas,
       tipoImpresoraSuministro: tipoImpresoraSuministro,
@@ -572,11 +621,22 @@ const getEquipoChart = async (req, res) => {
       tipoMonitor: tipoMonitor,
       tipoImpresora: tipoImpresora,
       impresoras: datosImpresoras,
+      impresorasCantidad: cantidadImpresoras,
       cpu: datosCPU,
+      cpuCantidad: cantidadCPU,
       laptop: datosLaptop,
+      laptopCantidad: cantidadLaptop,
       monitor: datosMonitor,
+      monitorCantidad: cantidadMonitor,
       anio: equiposAnio,
-      cpusPorGeneracion:cpusPorGeneracion
+      cpusPorGeneracion: cpusPorGeneracion,
+      procesadoresCantidad:procesadoresCantidad,
+      cpusPorGeneracionCantidad:cpusPorGeneracionCantidad,
+      tipoImpresoraCantidad: impresoraPorTipoCantidad,
+      tipoImpresoraSuministroCantidad: tipoImpresoraSuministroCantidad,
+      impresorasCantidad: impresorasCantidad,
+      tipoMonitorCantidad: tipoMonitorCantidad,
+      monitorporPulgadasCantidad:monitorporPulgadasCantidad
     });
   } catch (error) {
     console.error(error);
@@ -797,8 +857,8 @@ const getEstadisticasPorDependencia = async (req, res) => {
     // Total por tipo
     const totalPorTipo = await db.equipo.findAll({
       attributes: [
-        'tipo',
-        [db.Sequelize.fn('COUNT', db.Sequelize.col('id')), 'cantidad'],
+        "tipo",
+        [db.Sequelize.fn("COUNT", db.Sequelize.col("id")), "cantidad"],
       ],
       where: {
         [Op.or]: [
@@ -814,15 +874,15 @@ const getEstadisticasPorDependencia = async (req, res) => {
           },
         ],
       },
-      group: ['tipo'],
+      group: ["tipo"],
       raw: true,
     });
 
     // Total por dependencia
     const totalPorDependencia = await db.equipo.findAll({
       attributes: [
-        [db.Sequelize.col('dependencia.nombre'), 'nombre_dependencia'],
-        [db.Sequelize.fn('COUNT', db.Sequelize.col('equipo.id')), 'cantidad'],
+        [db.Sequelize.col("dependencia.nombre"), "nombre_dependencia"],
+        [db.Sequelize.fn("COUNT", db.Sequelize.col("equipo.id")), "cantidad"],
       ],
       include: [
         {
@@ -844,16 +904,16 @@ const getEstadisticasPorDependencia = async (req, res) => {
           },
         ],
       },
-      group: ['dependencia.nombre'],
+      group: ["dependencia.nombre"],
       raw: true,
     });
 
     // Total por tipo agrupado por dependencia
     const totalPorTipoPorDependencia = await db.equipo.findAll({
       attributes: [
-        [db.Sequelize.col('dependencia.nombre'), 'nombre_dependencia'],
-        'tipo',
-        [db.Sequelize.fn('COUNT', db.Sequelize.col('equipo.id')), 'cantidad'],
+        [db.Sequelize.col("dependencia.nombre"), "nombre_dependencia"],
+        "tipo",
+        [db.Sequelize.fn("COUNT", db.Sequelize.col("equipo.id")), "cantidad"],
       ],
       include: [
         {
@@ -875,8 +935,8 @@ const getEstadisticasPorDependencia = async (req, res) => {
           },
         ],
       },
-      group: ['dependencia.nombre', 'tipo'],
-      order: [[db.Sequelize.col('dependencia.nombre'), 'ASC']], // Ordena por nombre de la dependencia en orden ascendente
+      group: ["dependencia.nombre", "tipo"],
+      order: [[db.Sequelize.col("dependencia.nombre"), "ASC"]], // Ordena por nombre de la dependencia en orden ascendente
     });
 
     res.json({
@@ -889,12 +949,6 @@ const getEstadisticasPorDependencia = async (req, res) => {
     res.status(500).json({ error: "Error al obtener estadísticas" });
   }
 };
-
-
-
-
-
-
 
 module.exports = {
   getEquipo,
@@ -909,5 +963,5 @@ module.exports = {
   excelEquipos,
   getEquiposActualizados,
   getImpresorasPorTipo,
-  getEstadisticasPorDependencia
+  getEstadisticasPorDependencia,
 };
