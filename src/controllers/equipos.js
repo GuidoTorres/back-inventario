@@ -295,7 +295,6 @@ const getDatosPorTipo = async (tipoEquipo) => {
   }
 };
 
-
 const normalizarTexto = (texto) => {
   return texto ? texto.trim().toUpperCase() : null;
 };
@@ -326,9 +325,19 @@ const getImpresorasPorTipo = async (tipoEquipo, campoContar, label) => {
     equiposFiltrados.forEach((equipo) => {
       let valorCampoContar = normalizarTexto(equipo[campoContar]);
 
-      if (valorCampoContar) {
-        conteos[valorCampoContar] = (conteos[valorCampoContar] || 0) + 1;
+      if (tipoEquipo === "Monitor" && campoContar === "tecnologia_monitor") {
+        if (valorCampoContar === null) {
+          valorCampoContar = "LED";
+        }
       }
+      if (tipoEquipo === "Impresora" && campoContar === "subtipo_impresora") {
+        if (valorCampoContar === null) {
+          valorCampoContar = "IMPRESORAS";
+        }
+      }
+        if (valorCampoContar) {
+          conteos[valorCampoContar] = (conteos[valorCampoContar] || 0) + 1;
+        }
     });
 
     // Definir colores predefinidos
@@ -574,8 +583,6 @@ const getEquipoChart = async (req, res) => {
       monitorporPulgadasCantidad: monitorporPulgadas.cantidad,
       cpusPorGeneracionCantidad: cpusPorGeneracion.cantidad,
       procesadoresCantidad: procesadores.cantidad,
-
-
     });
   } catch (error) {
     console.error(error);
@@ -722,48 +729,61 @@ const equiposBienesSiga = async (req, res) => {
 
 const equiposBienesSigaComparar = async (req, res) => {
   try {
-    // Obtener todos los equipos con su fecha de ingreso cuyo estado es null
-    const equipos = await db.equipo.findAll({
-      attributes: ["id", "fecha_ingreso", "estado_conserv"],
-      where: {
-        estado_conserv: null, // Filtrar solo los que tienen estado_conserv como null
-      },
+    const response = await fetch("http://10.30.1.42:8084/api/v1/bienes/prueba");
+    const externalData = await response.json();
+
+    const existingData = await db.equipo.findAll({
+      attributes: ["id", "sbn", "fecha_ingreso"],
     });
 
-    for (const equipo of equipos) {
-      const fechaIngreso = new Date(equipo.fecha_ingreso);
-      const yearsSinceIngreso = Math.floor((new Date() - fechaIngreso) / (1000 * 60 * 60 * 24 * 365.25));
+    // Crear un mapa de los registros existentes en la tabla db.equipo usando el sbn
+    const existingMap = new Map(
+      existingData.map((item) => [
+        item.sbn,
+        { id: item.id, fecha_ingreso: item.fecha_ingreso },
+      ])
+    );
 
-      let estadoConserv;
-      if (yearsSinceIngreso <= 1) {
-        estadoConserv = 5; // Nuevo
-      } else if (yearsSinceIngreso <= 3) {
-        estadoConserv = 1; // Bueno
-      } else if (yearsSinceIngreso <= 10) {
-        estadoConserv = 2; // Regular
-      } else {
-        estadoConserv = 3; // Malo
+    // Lista para almacenar los registros que están en el response y en la tabla db.equipo,
+    // pero que no tienen fecha_ingreso en la base de datos
+    const registrosActualizar = [];
+
+    externalData?.data?.forEach((item) => {
+      const sbn = item.sbn;
+      const fechaIngreso = new Date(item.fecha_ingreso);
+
+      // Verificar si el registro existe en la base de datos y no tiene fecha_ingreso
+      if (sbn && existingMap.has(sbn)) {
+        const { id, fecha_ingreso: fechaIngresoDb } = existingMap.get(sbn);
+
+        // Si el registro en la base de datos no tiene fecha_ingreso pero en el response sí
+        if (!fechaIngresoDb && fechaIngreso) {
+          registrosActualizar.push({ id, fecha_ingreso: fechaIngreso });
+        }
       }
+    });
 
-      // Actualizar el estado de conservación
+    // Actualizar los registros en la base de datos
+    for (const registro of registrosActualizar) {
       await db.equipo.update(
-        { estado_conserv: estadoConserv },
-        { where: { id: equipo.id } }
+        { fecha_ingreso: registro.fecha_ingreso },
+        { where: { id: registro.id } }
       );
     }
 
-    return res.json({ message: "Estados de conservación actualizados correctamente para equipos sin estado." });
+    // Devolver los registros que fueron actualizados
+    return res.json({
+      cantidad: registrosActualizar.length,
+      data: registrosActualizar,
+    });
   } catch (error) {
-    console.error("Error al actualizar estados de conservación:", error);
-    res.status(500).json({ error: "Error al actualizar estados de conservación" });
+    // Manejar errores
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Error fetching data", error: error.message });
   }
 };
-
-
-
-
-
-
 
 const asignarBienesTrabajador = async (req, res) => {
   try {
@@ -771,7 +791,7 @@ const asignarBienesTrabajador = async (req, res) => {
       attributes: ["id", "empleado_final", "descripcion"],
     });
     const trabajadores = await db.trabajador.findAll({
-      attributes: ["id", "dni", "codigo",],
+      attributes: ["id", "dni", "codigo"],
     });
 
     console.log(`Total bienes recuperados: ${bienes.length}`);
@@ -845,6 +865,8 @@ const getEstadisticasPorDependencia = async (req, res) => {
         [db.Sequelize.fn("COUNT", db.Sequelize.col("id")), "cantidad"],
       ],
       where: {
+        tipo: { [Op.ne]: null },
+
         [Op.or]: [
           {
             updatedAt: {
@@ -875,6 +897,7 @@ const getEstadisticasPorDependencia = async (req, res) => {
         },
       ],
       where: {
+        dependencia_id: { [Op.ne]: null },
         [Op.or]: [
           {
             updatedAt: {
@@ -906,6 +929,8 @@ const getEstadisticasPorDependencia = async (req, res) => {
         },
       ],
       where: {
+        dependencia_id: { [Op.ne]: null },
+        tipo: { [Op.ne]: null },
         [Op.or]: [
           {
             updatedAt: {
@@ -948,5 +973,5 @@ module.exports = {
   getEquiposActualizados,
   getImpresorasPorTipo,
   getEstadisticasPorDependencia,
-  equiposBienesSigaComparar
+  equiposBienesSigaComparar,
 };
