@@ -5,7 +5,7 @@ const db = require("../../app/models/index");
 const XLSX = require("xlsx");
 const path = require("path");
 const { Op } = require("sequelize");
-const fechaComparar = new Date("2024-08-27T00:00:00");
+const fechaComparar = "2024-08-27 00:00:00";
 
 const getEquipo = async (req, res) => {
   try {
@@ -212,18 +212,18 @@ const getDatosPorTipo = async (tipoEquipo) => {
   try {
     const equiposFiltrados = await db.equipo.findAll({
       where: {
+        tipo: tipoEquipo,
         [Op.or]: [
-          {
-            updatedAt: {
-              [Op.gte]: fechaComparar,
-            },
-          },
           {
             createdAt: {
               [Op.gte]: fechaComparar,
             },
           },
-          { tipo: tipoEquipo },
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
         ],
       },
     });
@@ -233,10 +233,7 @@ const getDatosPorTipo = async (tipoEquipo) => {
       1: "bueno",
       2: "regular",
       3: "malo",
-      // 4: "muyMalo",
       4: "nuevo",
-      // 6: "chatarra",
-      // 7: "raee",
     };
 
     // Contar los estados para el tipo específico
@@ -245,16 +242,12 @@ const getDatosPorTipo = async (tipoEquipo) => {
       bueno: 0,
       regular: 0,
       malo: 0,
-      // muyMalo: 0,
-      // chatarra: 0,
-      // raee: 0,
+      otros: 0, // Agregamos una categoría "otros" para estados no mapeados
     };
 
     equiposFiltrados.forEach(({ estado_conserv }) => {
-      const estadoTexto = estadoMap[estado_conserv];
-      if (estadoTexto) {
-        conteos[estadoTexto]++;
-      }
+      const estadoTexto = estadoMap[estado_conserv] || "otros";
+      conteos[estadoTexto]++;
     });
 
     // Formatear los datos para Chart.js usando el formato especificado
@@ -264,9 +257,7 @@ const getDatosPorTipo = async (tipoEquipo) => {
         "Bueno",
         "Regular",
         "Malo",
-        // "Muy Malo",
-        // "Chatarra",
-        // "RAEE",
+        "Sin estado", // Agregamos "Otros" al gráfico
       ],
       datasets: [
         {
@@ -276,39 +267,35 @@ const getDatosPorTipo = async (tipoEquipo) => {
             conteos.bueno,
             conteos.regular,
             conteos.malo,
-            // conteos.muyMalo,
-            // conteos.chatarra,
-            // conteos.raee,
+            conteos.otros, // Incluimos la categoría "Otros" en los datos
           ],
           backgroundColor: [
             "rgba(91, 141, 196, 0.78)", // Nuevo
             "rgba(120, 201, 150, 0.8)", // Bueno
             "rgba(228, 228, 125, 0.78)", // Regular
             "rgba(145, 53, 73, 0.35)", // Malo
-            // "rgba(255, 99, 132, 0.2)", // Muy Malo
-            // "rgba(54, 162, 235, 0.2)", // Chatarra
-            // "rgba(75, 192, 192, 0.2)", // RAEE
+            "rgba(255, 159, 64, 0.6)",
           ],
           borderColor: [
             "rgba(91, 141, 196, 1)", // Nuevo
             "rgba(120, 201, 150, 1)", // Bueno
             "rgba(228, 228, 125, 1)", // Regular
             "rgba(145, 53, 73, 0.50)", // Malo
-            // "rgba(255, 99, 132, 1)", // Muy Malo
-            // "rgba(54, 162, 235, 1)", // Chatarra
-            // "rgba(75, 192, 192, 1)", // RAEE
+            "rgba(255, 159, 64, 1)", // Naranja
           ],
           borderWidth: 1,
         },
       ],
     };
 
-    return data;
+    return { data, cantidad: equiposFiltrados.length };
   } catch (error) {
     console.error(error);
     throw new Error("Error al obtener los datos");
   }
 };
+
+
 const normalizarTexto = (texto) => {
   return texto ? texto.trim().toUpperCase() : null;
 };
@@ -381,7 +368,7 @@ const getImpresorasPorTipo = async (tipoEquipo, campoContar, label) => {
       ],
     };
 
-    return data;
+    return { data, cantidad: equiposFiltrados.length };
   } catch (error) {
     console.error(error);
     throw new Error("Error al obtener los datos");
@@ -463,9 +450,6 @@ const getEstadisticasProcesadores = async () => {
       attributes: ["procesador"],
     });
 
-    console.log("procesadores");
-    console.log(equipos.length);
-
     // Diccionario para almacenar los conteos
     const conteos = {};
 
@@ -513,7 +497,7 @@ const getEstadisticasProcesadores = async () => {
       ],
     };
 
-    return data;
+    return { data, cantidad: equipos.length };
   } catch (error) {
     console.error("Error al obtener estadísticas de procesadores:", error);
     throw new Error("Error al obtener los datos");
@@ -534,6 +518,8 @@ const getEquipoChart = async (req, res) => {
     const datosCPU = await getDatosPorTipo("Cpu");
     const datosLaptop = await getDatosPorTipo("Laptop");
     const datosMonitor = await getDatosPorTipo("Monitor");
+    const datosTeclado = await getDatosPorTipo("Teclado");
+    const datosMouse = await getDatosPorTipo("Mouse");
     const equiposAnio = await getEquiposPorAño();
     const tipoImpresora = await getImpresorasPorTipo(
       "Impresora",
@@ -562,81 +548,34 @@ const getEquipoChart = async (req, res) => {
     );
     const procesadores = await getEstadisticasProcesadores();
 
-    // Calcular las cantidades totales
-    const cantidadImpresoras = datosImpresoras.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-    const cantidadCPU = datosCPU.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-    const cantidadLaptop = datosLaptop.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-    const cantidadMonitor = datosMonitor.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-    const procesadoresCantidad = procesadores.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-
-    const cpusPorGeneracionCantidad = cpusPorGeneracion.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-
-    const impresoraPorTipoCantidad = tipoImpresora.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-
-    const tipoImpresoraSuministroCantidad = tipoImpresoraSuministro.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-
-    const impresorasCantidad = datosImpresoras.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-
-    const tipoMonitorCantidad = tipoMonitor.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-    
-    const monitorporPulgadasCantidad = monitorporPulgadas.datasets[0].data.reduce(
-      (total, num) => total + num,
-      0
-    );
-
     return res.json({
-      monitorporPulgadas: monitorporPulgadas,
-      tipoImpresoraSuministro: tipoImpresoraSuministro,
-      procesadores: procesadores,
-      tipoMonitor: tipoMonitor,
-      tipoImpresora: tipoImpresora,
-      impresoras: datosImpresoras,
-      impresorasCantidad: cantidadImpresoras,
-      cpu: datosCPU,
-      cpuCantidad: cantidadCPU,
-      laptop: datosLaptop,
-      laptopCantidad: cantidadLaptop,
-      monitor: datosMonitor,
-      monitorCantidad: cantidadMonitor,
+      monitorporPulgadas: monitorporPulgadas.data,
+      tipoImpresoraSuministro: tipoImpresoraSuministro.data,
+      procesadores: procesadores.data,
+      tipoMonitor: tipoMonitor.data,
+      tipoImpresora: tipoImpresora.data,
+      impresoras: datosImpresoras.data,
+      cpu: datosCPU.data,
+      laptop: datosLaptop.data,
+      monitor: datosMonitor.data,
+      mouse: datosMouse.data,
       anio: equiposAnio,
-      cpusPorGeneracion: cpusPorGeneracion,
-      procesadoresCantidad:procesadoresCantidad,
-      cpusPorGeneracionCantidad:cpusPorGeneracionCantidad,
-      tipoImpresoraCantidad: impresoraPorTipoCantidad,
-      tipoImpresoraSuministroCantidad: tipoImpresoraSuministroCantidad,
-      impresorasCantidad: impresorasCantidad,
-      tipoMonitorCantidad: tipoMonitorCantidad,
-      monitorporPulgadasCantidad:monitorporPulgadasCantidad
+      teclado: datosTeclado.data,
+      cantidadTeclado: datosTeclado.cantidad,
+      cantidadMouse: datosMouse.cantidad,
+      cpusPorGeneracion: cpusPorGeneracion.data,
+      impresorasCantidad: datosImpresoras.cantidad,
+      cpuCantidad: datosCPU.cantidad,
+      laptopCantidad: datosLaptop.cantidad,
+      monitorCantidad: datosMonitor.cantidad,
+      tipoImpresoraCantidad: tipoImpresora.cantidad,
+      tipoImpresoraSuministroCantidad: tipoImpresoraSuministro.cantidad,
+      tipoMonitorCantidad: tipoMonitor.cantidad,
+      monitorporPulgadasCantidad: monitorporPulgadas.cantidad,
+      cpusPorGeneracionCantidad: cpusPorGeneracion.cantidad,
+      procesadoresCantidad: procesadores.cantidad,
+
+
     });
   } catch (error) {
     console.error(error);
@@ -781,13 +720,58 @@ const equiposBienesSiga = async (req, res) => {
   }
 };
 
+const equiposBienesSigaComparar = async (req, res) => {
+  try {
+    // Obtener todos los equipos con su fecha de ingreso cuyo estado es null
+    const equipos = await db.equipo.findAll({
+      attributes: ["id", "fecha_ingreso", "estado_conserv"],
+      where: {
+        estado_conserv: null, // Filtrar solo los que tienen estado_conserv como null
+      },
+    });
+
+    for (const equipo of equipos) {
+      const fechaIngreso = new Date(equipo.fecha_ingreso);
+      const yearsSinceIngreso = Math.floor((new Date() - fechaIngreso) / (1000 * 60 * 60 * 24 * 365.25));
+
+      let estadoConserv;
+      if (yearsSinceIngreso <= 1) {
+        estadoConserv = 5; // Nuevo
+      } else if (yearsSinceIngreso <= 3) {
+        estadoConserv = 1; // Bueno
+      } else if (yearsSinceIngreso <= 10) {
+        estadoConserv = 2; // Regular
+      } else {
+        estadoConserv = 3; // Malo
+      }
+
+      // Actualizar el estado de conservación
+      await db.equipo.update(
+        { estado_conserv: estadoConserv },
+        { where: { id: equipo.id } }
+      );
+    }
+
+    return res.json({ message: "Estados de conservación actualizados correctamente para equipos sin estado." });
+  } catch (error) {
+    console.error("Error al actualizar estados de conservación:", error);
+    res.status(500).json({ error: "Error al actualizar estados de conservación" });
+  }
+};
+
+
+
+
+
+
+
 const asignarBienesTrabajador = async (req, res) => {
   try {
     const bienes = await db.equipo.findAll({
       attributes: ["id", "empleado_final", "descripcion"],
     });
     const trabajadores = await db.trabajador.findAll({
-      attributes: ["id", "dni", "codigo"],
+      attributes: ["id", "dni", "codigo",],
     });
 
     console.log(`Total bienes recuperados: ${bienes.length}`);
@@ -964,4 +948,5 @@ module.exports = {
   getEquiposActualizados,
   getImpresorasPorTipo,
   getEstadisticasPorDependencia,
+  equiposBienesSigaComparar
 };
