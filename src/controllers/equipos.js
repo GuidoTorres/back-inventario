@@ -23,6 +23,40 @@ const getEquipo = async (req, res) => {
   }
 };
 
+const getEquiposInventariados = async (req,res) =>{
+  try {
+    const equipo = await db.equipo.findAll({
+
+      where: {
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+
+    });
+
+    const format = equipo.map((item, i) => {
+      return {
+        nro: i + 1,
+        ...item.dataValues,
+      };
+    });
+    return res.json({ data: format });
+  } catch (error) {
+    console.log(error);
+  }
+
+}
+
 const actualizarEquiposDesdeExcel = async (filePath) => {
   try {
     const workbook = XLSX.readFile(filePath);
@@ -974,4 +1008,5 @@ module.exports = {
   getImpresorasPorTipo,
   getEstadisticasPorDependencia,
   equiposBienesSigaComparar,
+  getEquiposInventariados
 };
