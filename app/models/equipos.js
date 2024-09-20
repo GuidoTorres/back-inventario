@@ -11,7 +11,11 @@ module.exports = (sequelize, DataTypes) =>{
           },
         tipo: DataTypes.STRING,
         marca: DataTypes.STRING,
-        sbn: DataTypes.STRING,
+        sbn: {
+          type: DataTypes.STRING,
+          allowNull: false,
+          unique: true, // Definir 'sbn' como único
+        },
         sbn_cpu: DataTypes.STRING,
         fecha_ingreso: DataTypes.STRING,
         proveedor: DataTypes.STRING,

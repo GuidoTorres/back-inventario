@@ -23,10 +23,9 @@ const getEquipo = async (req, res) => {
   }
 };
 
-const getEquiposInventariados = async (req,res) =>{
+const getEquiposInventariados = async (req, res) => {
   try {
     const equipo = await db.equipo.findAll({
-
       where: {
         [Op.or]: [
           {
@@ -41,7 +40,6 @@ const getEquiposInventariados = async (req,res) =>{
           },
         ],
       },
-
     });
 
     const format = equipo.map((item, i) => {
@@ -54,8 +52,7 @@ const getEquiposInventariados = async (req,res) =>{
   } catch (error) {
     console.log(error);
   }
-
-}
+};
 
 const actualizarEquiposDesdeExcel = async (filePath) => {
   try {
@@ -90,13 +87,13 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
       // Agregar las filas procesadas al array general
       allRows.push(...formattedData);
     }
+
     // Procesar cada fila en allRows
     for (const row of allRows) {
       const equipoData = {
         tipo:
           row["TIPO"] === "UNIDAD CENTRAL DE PROCESOS" ? "Cpu" : row["TIPO"],
-        subtipo_impresora: row["subtipo"],
-
+        subtipo_impresora: row["subtipo"] || null,
         marca: row["MARCA"] || null,
         sbn: row["SBN"] || null,
         sbn_cpu: row["SBN - CPU"] || null,
@@ -114,9 +111,9 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
         nombre_pc: row["Nombre  PC"] || null,
         tipo_disco_duro: row["TIPO DISCO"] || null,
         almacenamiento: row["ALMACENAMIENTO"] || null,
-        unidad_optica: row["UNIDAD OPTICA"] === "SI" ? true : false,
-        antivirus: row["ANTIVIRUS"] === "SI" ? true : false,
-        windows: row["WINDOWS"] === "SI" ? true : false,
+        unidad_optica: row["UNIDAD OPTICA"] === "SI",
+        antivirus: row["ANTIVIRUS"] === "SI",
+        windows: row["WINDOWS"] === "SI",
         version_windows: row["WINDOWS"] || null,
         sistema_operativo: row["SISTEMA OPERATIVO"] || null,
         ofimatica: row["OFIMATICA"] || null,
@@ -126,29 +123,38 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
         tamaño: row["TAMAÑO"] || null,
         ip: row["IP"] || null,
         tecnologia_monitor: row["TECNOLOGIA_MONITOR"] || null,
-        pulgadas: row["PULGADAS"],
+        pulgadas: row["PULGADAS"] || null,
         anexo: row["ANEXO"] || null,
         sede_id: row["SEDE"] || null,
         modulo_id: row["MODULO"] || null,
         dependencia_id: row["Area"] || null,
         sub_dependencia_id: row["Oficina"] || null,
       };
-      if (
-        equipoData.tipo ||
-        equipoData.marca ||
-        equipoData.sbn ||
-        equipoData.sbn_cpu ||
-        equipoData.procesador ||
-        equipoData.capacidad_disco_duro ||
-        equipoData.memoria_ram ||
-        equipoData.nombre_pc ||
-        equipoData.usuario_actual // puedes añadir más campos aquí según la necesidad
-      ) {
-        allEquiposData.push(equipoData);
-        await db.equipo.upsert(equipoData);
+
+      // Verificar que 'sbn' tenga un valor
+      if (!equipoData.sbn) {
+        console.warn(
+          `El registro con nombre_pc ${equipoData.nombre_pc} no tiene 'SBN' definido. Se omitirá este registro.`
+        );
+        continue; // Saltar este registro si 'sbn' es null o undefined
       }
 
-      // Aquí haces el upsert en la base de datos si fuera necesario
+      // Buscar si el registro ya existe
+      const equipoExistente = await db.equipo.findOne({
+        where: { sbn: equipoData.sbn },
+      });
+
+      if (equipoExistente) {
+        // Actualizar el registro existente
+        await equipoExistente.update(equipoData);
+        console.log(`Registro actualizado para SBN: ${equipoData.sbn}`);
+      } else {
+        // Crear un nuevo registro
+        await db.equipo.create(equipoData);
+        console.log(`Registro creado para SBN: ${equipoData.sbn}`);
+      }
+
+      allEquiposData.push(equipoData);
     }
 
     console.log("Actualización completa");
@@ -158,6 +164,7 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
     throw error; // Lanzar el error para que pueda ser capturado en el controlador
   }
 };
+
 
 const excelEquipos = async (req, res) => {
   try {
@@ -369,9 +376,96 @@ const getImpresorasPorTipo = async (tipoEquipo, campoContar, label) => {
           valorCampoContar = "IMPRESORAS";
         }
       }
-        if (valorCampoContar) {
-          conteos[valorCampoContar] = (conteos[valorCampoContar] || 0) + 1;
+      if (valorCampoContar) {
+        conteos[valorCampoContar] = (conteos[valorCampoContar] || 0) + 1;
+      }
+    });
+
+    // Definir colores predefinidos
+    const predefinedColors = [
+      "rgba(91, 141, 196, 0.78)", // Azul claro
+      "rgba(120, 201, 150, 0.8)", // Verde claro
+      "rgba(228, 228, 125, 0.78)", // Amarillo claro
+      "rgba(145, 53, 73, 0.35)", // Rojo oscuro
+      "rgba(255, 99, 132, 0.5)", // Rosa
+      "rgba(54, 162, 235, 0.5)", // Azul
+      "rgba(75, 192, 192, 0.5)", // Verde agua
+      "rgba(153, 102, 255, 0.5)", // Púrpura
+      "rgba(255, 159, 64, 0.5)", // Naranja
+    ];
+
+    const borderColorVariants = predefinedColors.map((color) =>
+      color.replace("0.5", "1")
+    );
+    const totalEquipos = equiposFiltrados.length;
+    // Preparar los datos para Chart.js
+    const data = {
+      labels: Object.keys(conteos), // Valores únicos del campo a contar
+      datasets: [
+        {
+          label: label,
+          data: Object.values(conteos), // Cantidades correspondientes
+          backgroundColor: predefinedColors.slice(
+            0,
+            Object.keys(conteos).length
+          ),
+          borderColor: borderColorVariants.slice(
+            0,
+            Object.keys(conteos).length
+          ),
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    return { data, cantidad: equiposFiltrados.length };
+  } catch (error) {
+    console.error(error);
+    throw new Error("Error al obtener los datos");
+  }
+};
+
+const getProcesadoresPorGeneracion = async (tipoEquipo, campoContar, label) => {
+  try {
+    // Obtener todos los registros filtrados por el tipo específico
+    const equiposFiltrados = await db.equipo.findAll({
+      where: {
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      attributes: [campoContar], // Traer solo el campo que queremos contar
+    });
+    const conteos = {};
+
+    equiposFiltrados.forEach((equipo) => {
+      let valorCampoContar = normalizarTexto(equipo[campoContar]);
+
+      if (tipoEquipo === "Monitor" && campoContar === "tecnologia_monitor") {
+        if (valorCampoContar === null) {
+          valorCampoContar = "LED";
         }
+      }
+      if (tipoEquipo === "Impresora" && campoContar === "subtipo_impresora") {
+        if (valorCampoContar === null) {
+          valorCampoContar = "IMPRESORAS";
+        }
+      }
+      if (valorCampoContar) {
+        conteos[valorCampoContar] = (conteos[valorCampoContar] || 0) + 1;
+      }
     });
 
     // Definir colores predefinidos
@@ -476,7 +570,9 @@ const getEstadisticasProcesadores = async () => {
     // Obtener todos los registros
     const equipos = await db.equipo.findAll({
       where: {
-        tipo: "Cpu",
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
         [Op.or]: [
           {
             updatedAt: {
@@ -547,6 +643,157 @@ const getEstadisticasProcesadores = async () => {
   }
 };
 
+const getEstadisticasLincencias = async () => {
+  try {
+    // Obtener todos los registros
+    const equipos = await db.equipo.findAll({
+      where: {
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      attributes: ["sistema_operativo"],
+    });
+
+    // Diccionario para almacenar los conteos
+    const conteos = {};
+
+    equipos.forEach(({ sistema_operativo }) => {
+      // Normalizar el nombre del procesador si es necesario
+      const procesadorNormalizado = normalizarProcesador(sistema_operativo);
+
+      // Crear un identificador único combinando procesador y generación
+      const identificador = `${procesadorNormalizado}`;
+
+      // Contar las ocurrencias
+      conteos[identificador] = (conteos[identificador] || 0) + 1;
+    });
+
+    const predefinedColors = [
+      "rgba(91, 141, 196, 0.78)", // Azul claro
+      "rgba(120, 201, 150, 0.8)", // Verde claro
+      "rgba(228, 228, 125, 0.78)", // Amarillo claro
+      "rgba(145, 53, 73, 0.35)", // Rojo oscuro
+      "rgba(255, 99, 132, 0.5)", // Rosa
+      "rgba(54, 162, 235, 0.5)", // Azul
+      "rgba(75, 192, 192, 0.5)", // Verde agua
+      "rgba(153, 102, 255, 0.5)", // Púrpura
+      "rgba(255, 159, 64, 0.5)", // Naranja
+    ];
+
+    const borderColorVariants = predefinedColors.map((color) =>
+      color.replace("0.5", "1")
+    );
+
+    // Preparar los datos para Chart.js
+    const data = {
+      labels: Object.keys(conteos), // Combinación de procesador y generación
+      datasets: [
+        {
+          label: `Cantidad`,
+          data: Object.values(conteos), // Cantidades correspondientes
+          backgroundColor: predefinedColors.slice(
+            0,
+            Object.keys(conteos).length
+          ),
+          borderColor: predefinedColors.slice(0, Object.keys(conteos).length),
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    return { data, cantidad: equipos.length };
+  } catch (error) {
+    console.error("Error al obtener estadísticas de procesadores:", error);
+    throw new Error("Error al obtener los datos");
+  }
+};
+
+const getEstadisticasAntivirus = async () => {
+  try {
+    // Obtener todos los registros
+    const equipos = await db.equipo.findAll({
+      where: {
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      attributes: ["antivirus"],
+    });
+
+    const conteos = {
+      antivirusHabilitado: 0,
+      antivirusDeshabilitado: 0,
+    };
+
+    equipos.forEach(({ antivirus }) => {
+      if (antivirus) {
+        conteos.antivirusHabilitado += 1; // Contar los que tienen antivirus habilitado (true)
+      } else {
+        conteos.antivirusDeshabilitado += 1; // Contar los que tienen antivirus deshabilitado (false)
+      }
+    });
+
+    const predefinedColors = [
+      "rgba(75, 192, 192, 0.8)", // Verde para habilitado
+      "rgba(255, 99, 132, 0.8)", // Rojo para deshabilitado
+    ];
+
+    const borderColorVariants = predefinedColors.map((color) =>
+      color.replace("0.5", "1")
+    );
+
+    // Preparar los datos para Chart.js
+    const data = {
+      labels: ["Con Antivirus", "Sin Antivirus"], // Combinación de procesador y generación
+      datasets: [
+        {
+          label: `Cantidad`,
+          data: [
+            conteos.antivirusHabilitado,
+            conteos.antivirusDeshabilitado,
+          ],
+          backgroundColor: predefinedColors.slice(
+            0,
+            Object.keys(conteos).length
+          ),
+          borderColor: predefinedColors.slice(0, Object.keys(conteos).length),
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    return { data, cantidad: equipos.length };
+  } catch (error) {
+    console.error("Error al obtener estadísticas de procesadores:", error);
+    throw new Error("Error al obtener los datos");
+  }
+};
+
 // Ejemplo de función para normalizar el nombre del procesador
 const normalizarProcesador = (procesador) => {
   if (!procesador) return "Sin Procesar";
@@ -584,12 +831,15 @@ const getEquipoChart = async (req, res) => {
       "pulgadas",
       "Cantidad"
     );
-    const cpusPorGeneracion = await getImpresorasPorTipo(
+    
+    const cpusPorGeneracion = await getProcesadoresPorGeneracion(
       "Cpu",
       "generacion_procesador",
       "Cantidad"
     );
     const procesadores = await getEstadisticasProcesadores();
+    const sistema_operativo = await getEstadisticasLincencias();
+    const antivirus = await getEstadisticasAntivirus();
 
     return res.json({
       monitorporPulgadas: monitorporPulgadas.data,
@@ -617,6 +867,10 @@ const getEquipoChart = async (req, res) => {
       monitorporPulgadasCantidad: monitorporPulgadas.cantidad,
       cpusPorGeneracionCantidad: cpusPorGeneracion.cantidad,
       procesadoresCantidad: procesadores.cantidad,
+      sistema_operativo: sistema_operativo.data,
+      sistema_operativo_cantidad: sistema_operativo.cantidad,
+      antivirus: antivirus.data,
+      antivirus_cantidad: antivirus.cantidad
     });
   } catch (error) {
     console.error(error);
@@ -1008,5 +1262,6 @@ module.exports = {
   getImpresorasPorTipo,
   getEstadisticasPorDependencia,
   equiposBienesSigaComparar,
-  getEquiposInventariados
+  getEquiposInventariados,
+  getEstadisticasLincencias
 };
