@@ -1,5 +1,5 @@
 const express = require('express');
-const { getEquipo, postEquipo, updateEquipo, deleteEquipo, getEquipoChart, getEquipoSelect, equiposBienesSiga, asignarBienesTrabajador, postVariosEquipo, excelEquipos, getEquiposActualizados, getImpresorasPorTipo, getEstadisticasPorDependencia, estadisticasImpresora, equiposBienesSigaComparar, getEquiposInventariados, getEstadisticasLincencias } = require('../controllers/equipos');
+const { getEquipo, postEquipo, updateEquipo, deleteEquipo, getEquipoChart, getEquipoSelect, equiposBienesSiga, asignarBienesTrabajador, postVariosEquipo, excelEquipos, getEquiposActualizados, getImpresorasPorTipo, getEstadisticasPorDependencia, estadisticasImpresora, equiposBienesSigaComparar, getEquiposInventariados, getEstadisticasLincencias, getEstadisticasPorSubDependencia } = require('../controllers/equipos');
 const upload = require('../middlewares/multer');
 const router = express.Router();
 
@@ -14,6 +14,7 @@ router.get("/bienes", equiposBienesSiga)
 router.get("/bienes/trabajador", asignarBienesTrabajador)
 router.get("/estadistica/impresora", getImpresorasPorTipo)
 router.get("/estadistica/dependencias", getEstadisticasPorDependencia)
+router.get("/estadistica/subDependencias", getEstadisticasPorSubDependencia)
 router.get("/prueba", equiposBienesSigaComparar)
 
 router.post("/", postEquipo)

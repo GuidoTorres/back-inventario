@@ -1247,6 +1247,126 @@ const getEstadisticasPorDependencia = async (req, res) => {
   }
 };
 
+const getEstadisticasPorSubDependencia = async (req, res) => {
+  try {
+    const fechaComparar = "2024-08-26 00:00:00"; // Ajusta según la fecha que necesites
+
+    // Total por tipo
+    const totalPorTipo = await db.equipo.findAll({
+      attributes: [
+        "tipo",
+        [db.Sequelize.fn("COUNT", db.Sequelize.col("id")), "cantidad"],
+      ],
+      where: {
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      group: ["tipo"],
+      // order: [[db.Sequelize.col("sub_dependencia.nombre"), "ASC"]],
+      raw: true,
+    });
+
+    // Total por subdependencia
+    const totalPorSubDependencia = await db.equipo.findAll({
+      attributes: [
+        [db.Sequelize.col("sub_dependencia.nombre"), "nombre_sub_dependencia"],
+        [db.Sequelize.fn("COUNT", db.Sequelize.col("equipo.id")), "cantidad"],
+      ],
+      include: [
+        {
+          model: db.sub_dependencias, // Aquí referencia al modelo de sub_dependencias
+          as: "sub_dependencia", // Alias que se usa para la relación
+          attributes: [], // No necesitamos otros atributos de sub_dependencia
+        },
+      ],
+      where: {
+        sub_dependencia_id: { [Op.ne]: null }, // Asegurarse de que haya una sub_dependencia
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      group: ["sub_dependencia.nombre"], // Agrupar por el nombre de la subdependencia
+      order: [[db.Sequelize.col("sub_dependencia.nombre"), "ASC"]], // Ordenar alfabéticamente (ascendente)
+      raw: true,
+    });
+    
+
+    // Total por tipo agrupado por subdependencia
+    const totalPorTipoPorSubDependencia = await db.equipo.findAll({
+      attributes: [
+        [db.Sequelize.col("sub_dependencia.nombre"), "nombre_sub_dependencia"],
+        "tipo",
+        [db.Sequelize.fn("COUNT", db.Sequelize.col("equipo.id")), "cantidad"],
+      ],
+      include: [
+        {
+          model: db.sub_dependencias, // Relacionar con sub_dependencias
+          as: "sub_dependencia", // Alias correcto para la relación
+          attributes: [],
+        },
+      ],
+      where: {
+        sub_dependencia_id: { [Op.ne]: null },
+        tipo: {
+          [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+        },
+        [Op.or]: [
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
+      },
+      group: ["sub_dependencia.nombre", "tipo"], // Agrupar por nombre de subdependencia y tipo
+      order: [[db.Sequelize.col("sub_dependencia.nombre"), "ASC"]], // Ordenar por nombre de la subdependencia
+      raw: true,
+    });
+
+    // Responder con los resultados obtenidos
+    res.json({
+      totalPorTipo,
+      totalPorSubDependencia,
+      totalPorTipoPorSubDependencia: totalPorTipoPorSubDependencia,
+    });
+  } catch (error) {
+    console.error("Error al obtener estadísticas:", error);
+    res.status(500).json({ error: "Error al obtener estadísticas" });
+  }
+};
+
+
+
 module.exports = {
   getEquipo,
   getEquipoChart,
@@ -1263,5 +1383,6 @@ module.exports = {
   getEstadisticasPorDependencia,
   equiposBienesSigaComparar,
   getEquiposInventariados,
-  getEstadisticasLincencias
+  getEstadisticasLincencias,
+  getEstadisticasPorSubDependencia
 };
