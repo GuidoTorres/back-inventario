@@ -2,7 +2,7 @@ const db = require("../../app/models/index");
 const getSubDependencia = async (req, res) => {
   try {
     const dependencia = await db.sub_dependencias.findAll({
-      attributes: ["id", "nombre"],
+      attributes: ["id", "nombre", "dependencia_id"],
       include: [
         {model: db.dependencias, attributes: ["nombre"]},
         { model: db.modulos, attributes: ["nombre"] },

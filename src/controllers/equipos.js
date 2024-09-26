@@ -23,18 +23,18 @@ const getEquipo = async (req, res) => {
   }
 };
 
-const getEquiposInventariados = async (req, res) => {
+const getEquipoSede = async (req, res) => {
   try {
     const equipo = await db.equipo.findAll({
       where: {
         [Op.or]: [
           {
-            updatedAt: {
+            createdAt: {
               [Op.gte]: fechaComparar,
             },
           },
           {
-            createdAt: {
+            updatedAt: {
               [Op.gte]: fechaComparar,
             },
           },
@@ -54,11 +54,319 @@ const getEquiposInventariados = async (req, res) => {
   }
 };
 
+// const getEquipo = async (req, res) => {
+//   try {
+
+//     const data = ['740805000153',
+//       '740805000152',
+//       '740899500575',
+//       '740805000142',
+//       '740805000154',
+//       '740899500632',
+//       '740899500640',
+//       '740899506017',
+//       '740899500639',
+//       '740899500644',
+//       '740899500645',
+//       '740899500333',
+//       '740899500548',
+//       '740899500594',
+//       '740899500514',
+//       '740899500422',
+//       '740805000060',
+//       '740899500515',
+//       '740899500423',
+//       '740899500351',
+//       '740805000139',
+//       '740805000180',
+//       '740899500623',
+//       '740899500605',
+//       '740899500579',
+//       '740805000061',
+//       '740805000102',
+//       '740805000158',
+//       '740899500571',
+//       '740805000114',
+//       '740899500565',
+//       '740899500526',
+//       '740805000101',
+//       '740899500569',
+//       '740805000090',
+//       '740805000124',
+//       '740899500555',
+//       "P-0075",
+//       '740899500539',
+//       '740899500641',
+//       '740899500598',
+//       '740899500440',
+//       '740899500557',
+//       '740899500602',
+//       '740899500599',
+//       '740899500449',
+//       '740899500519',
+//       '740899500581',
+//       '740899500578',
+//       '740805000099',
+//       '740805000156',
+//       '740899500611',
+//       '740899500580',
+//       '740805000080',
+//       '740899500616',
+//       '740805000176',
+//       '740805000091',
+//       '740899500576',
+//       '740805000107',
+//       '740899500591',
+//       '740899500551',
+//       '740805000104',
+//       '740805000183',
+//       '740899500540',
+//       '740805000127',
+//       '740899500592',
+//       '740805000079',
+//       '740805000089',
+//       '740805000078',
+//       '740805000143',
+//       '740899500615',
+//       '740899500572',
+//       '740805000160',
+//       '740899500445',
+//       '740899500410',
+//       '740899500582',
+//       '740899500457',
+//       '740899500017',
+//       '740805000092',
+//       '740805000172',
+//       '740899500482',
+//       '740899500537',
+//       '740899500538',
+//       '740899500509',
+//       '740805000112',
+//       '740899500637',
+//       '740899500608',
+//       '740899500335',
+//       '740899500590',
+//       '740899500518',
+//       '740899500404',
+//       '740899500630',
+//       '740899500425',
+//       '740899500531',
+//       '740899500621',
+//       '740899500463',
+//       '740899500612',
+//       '740899500506',
+//       '740899500507',
+//       '740899500467',
+//       '74899500628',
+//       '740899500462',
+//       '740899500585',
+//       '740899500479',
+//       '740899500487',
+//       '740805000105',
+//       '740899500607',
+//       '740899500454',
+//       '740899500480',
+//       '740899500452',
+//       '740899500542',
+//       '740899500606',
+//       '740899500629',
+//       '740899500427',
+//       '740805000157',
+//       '740899500601',
+//       '740899500442',
+//       '740899500443',
+//       '740899500564',
+//       '740899500431',
+//       '740899500444',
+//       '740899500492',
+//       '740899500441',
+//       '740805000137',
+//       '740899500583',
+//       '740899500627',
+//       '740899500593',
+//       '740899500499',
+//       '740899500524',
+//       '740899500589',
+//       '740899500626',
+//       '740899500501',
+//       '740899500497',
+//       '740899500619',
+//       '740899500426',
+//       '740805000173',
+//       '740899500563',
+//       '740899500560',
+//       '740899500532',
+//       '740845500122',
+//       '740899500446',
+//       '740899500570',
+//       '740899500498',
+//       '740899500625',
+//       '740899500559',
+//       '740899500558',
+//       '740899500496',
+//       '740899500556',
+//       '740899500541',
+//       '740805000085',
+//       '740805000599',
+//       '740899500437',
+//       '740899500468',
+//       '740899500329',
+//       '740899500453',
+//       '740805000171',
+//       '740805000170',
+//       '740805000168',
+//       '740899500448',
+//       '740899500462',
+//       '740805000135',
+//       '740899500458',
+//       '740899500503',
+//       '740805000178',
+//       '740899500639',
+//       '740899500522',
+//       '740899500613',
+//       '740805000108',
+//       '740899500554',
+//       '740805000144',
+//       '740899500618',
+//       '740899500490',
+//       '740899500386',
+//       '740805000138',
+//       '710899500520',
+//       '740899500450',
+//       '740805000145',
+//       '740899500483',
+//       '740899500371',
+//       '740805000069',
+//       '740899500513',
+//       '740899500596',
+//       '740899500544',
+//       '74080500169',
+//       '740899500597',
+//       '740805000129',
+//       '740899500389',
+//       '740899500543',
+//       '740899500549',
+//       '740805000095',
+//       '740899500484',
+//       '740805000119',
+//       '740899500584',
+//       "L-021",
+//       '740805000164',
+//       '740899500488',
+//       '740899500451',
+//       '740805000042',
+//       '740899500400',
+//       '740805000122',
+//       '740899500636',
+//       '740899500552',
+//       '740899500419',
+//       '740899500392',
+//       '740899500493',
+//       '740899500362',
+//       '740805000075',
+//       '740899500370',
+//       '740899500609',
+//       '740899500360',
+//       '740899500550',
+//       '740899500420',
+//       '740805000020',
+//       '740899500349',
+//       '740899500407',
+//       '740899500486',
+//       '740899500414',
+//       '740805000166',
+//       '740805000165',
+//       '740899500390',
+//       '740805000167',
+//       '740899500318',
+//       '740899500587',
+//       '740899500586',
+//       '740899500428',
+//       '740899500588',
+//       '740805000161']
+//       const equipoEncontrado = await db.equipo.findAll({
+//         where: {
+//           sbn: { [Op.in]: data }
+//         }
+//       });
+
+//       // Obtener solo los valores de `sbn` que están en la base de datos
+//       const sbnsEncontrados = equipoEncontrado.map(item => item.sbn);
+
+//       // Paso 2: Filtrar los valores de `data` que no están en la base de datos
+//       const sbnsNoEncontrados = data.filter(sbn => !sbnsEncontrados.includes(sbn));
+
+//       // Paso 3: Formatear los resultados para los que están en la BD
+//       const format = equipoEncontrado.map((item, i) => {
+//         return {
+//           nro: i + 1,
+//           ...item.dataValues,
+//         };
+//       });
+
+//       // Devolver los resultados al frontend
+//       return res.json({
+//         noEncontrados: sbnsNoEncontrados,  // Elementos que no están en la BD
+//       });
+//   } catch (error) {
+//     console.log(error);
+//   }
+// };
+
+const getEquiposInventariados = async (req, res) => {
+  try {
+    // Consulta para obtener los registros creados
+    const equiposCreados = await db.equipo.findAll({
+      where: {
+        createdAt: {
+          [Op.gte]: fechaComparar,
+        },
+      },
+    });
+
+    // Consulta para obtener los registros actualizados
+    const equiposActualizados = await db.equipo.findAll({
+      where: {
+        updatedAt: {
+          [Op.gte]: fechaComparar,
+        },
+      },
+    });
+
+    // Combinar ambos resultados en un solo array
+    const equiposCombinados = [...equiposCreados, ...equiposActualizados];
+
+    // Eliminar duplicados (en caso de que un registro esté en ambas listas)
+    const equiposUnicos = equiposCombinados.filter(
+      (equipo, index, self) =>
+        index === self.findIndex((e) => e.sbn === equipo.sbn)
+    );
+
+    // Formatear los datos antes de enviarlos como respuesta
+    const format = equiposUnicos.map((item, i) => {
+      return {
+        nro: i + 1,
+        ...item.dataValues,
+      };
+    });
+
+    return res.json({ data: format });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Error al obtener los equipos" });
+  }
+};
+
 const actualizarEquiposDesdeExcel = async (filePath) => {
   try {
     const workbook = XLSX.readFile(filePath);
-    const allRows = []; // Array para almacenar todas las filas de todas las hojas
+    const allRows = [];
     const allEquiposData = [];
+
+    // Contadores y arrays para almacenar los SBNs actualizados y creados
+    let contadorActualizados = 0;
+    let contadorCreados = 0;
+    let sbnsActualizados = []; // Array para almacenar los SBN actualizados
 
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
@@ -84,7 +392,6 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
           )
         );
 
-      // Agregar las filas procesadas al array general
       allRows.push(...formattedData);
     }
 
@@ -100,7 +407,7 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
         procesador:
           row["Procesador y Velocidad (I5, Core2 Dual, P4, P3) (GHZ, MHZ)"] ||
           null,
-        generacion_procesador: row["Generacion"] || null,
+        generacion_procesador: row["GENERACION"] || null,
         capacidad_disco_duro: row["ALMACENAMIENTO"] || null,
         memoria_ram: row["Memoria (GB, MB)"] || null,
         tarjeta_video: row["GRAFICA DEDICADA"] || null,
@@ -131,12 +438,11 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
         sub_dependencia_id: row["Oficina"] || null,
       };
 
-      // Verificar que 'sbn' tenga un valor
       if (!equipoData.sbn) {
         console.warn(
           `El registro con nombre_pc ${equipoData.nombre_pc} no tiene 'SBN' definido. Se omitirá este registro.`
         );
-        continue; // Saltar este registro si 'sbn' es null o undefined
+        continue;
       }
 
       // Buscar si el registro ya existe
@@ -148,23 +454,34 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
         // Actualizar el registro existente
         await equipoExistente.update(equipoData);
         console.log(`Registro actualizado para SBN: ${equipoData.sbn}`);
+        contadorActualizados++; // Aumentar el contador de actualizados
+        sbnsActualizados.push(equipoData.sbn); // Guardar el SBN actualizado
       } else {
         // Crear un nuevo registro
         await db.equipo.create(equipoData);
         console.log(`Registro creado para SBN: ${equipoData.sbn}`);
+        contadorCreados++; // Aumentar el contador de creados
       }
 
       allEquiposData.push(equipoData);
     }
 
     console.log("Actualización completa");
-    return allEquiposData; // Devolver todos los resultados
+    console.log(`Registros creados: ${contadorCreados}`);
+    console.log(`Registros actualizados: ${contadorActualizados}`);
+    console.log(`SBNs actualizados: ${sbnsActualizados.join(", ")}`);
+
+    return {
+      equipos: allEquiposData, // Devolver todos los equipos procesados
+      creados: contadorCreados, // Devolver el número de registros creados
+      actualizados: contadorActualizados, // Devolver el número de registros actualizados
+      sbnsActualizados, // Devolver los SBNs actualizados
+    };
   } catch (error) {
     console.error("Error al actualizar los equipos:", error);
-    throw error; // Lanzar el error para que pueda ser capturado en el controlador
+    throw error;
   }
 };
-
 
 const excelEquipos = async (req, res) => {
   try {
@@ -773,10 +1090,7 @@ const getEstadisticasAntivirus = async () => {
       datasets: [
         {
           label: `Cantidad`,
-          data: [
-            conteos.antivirusHabilitado,
-            conteos.antivirusDeshabilitado,
-          ],
+          data: [conteos.antivirusHabilitado, conteos.antivirusDeshabilitado],
           backgroundColor: predefinedColors.slice(
             0,
             Object.keys(conteos).length
@@ -831,7 +1145,7 @@ const getEquipoChart = async (req, res) => {
       "pulgadas",
       "Cantidad"
     );
-    
+
     const cpusPorGeneracion = await getProcesadoresPorGeneracion(
       "Cpu",
       "generacion_procesador",
@@ -870,7 +1184,7 @@ const getEquipoChart = async (req, res) => {
       sistema_operativo: sistema_operativo.data,
       sistema_operativo_cantidad: sistema_operativo.cantidad,
       antivirus: antivirus.data,
-      antivirus_cantidad: antivirus.cantidad
+      antivirus_cantidad: antivirus.cantidad,
     });
   } catch (error) {
     console.error(error);
@@ -1258,6 +1572,7 @@ const getEstadisticasPorSubDependencia = async (req, res) => {
         [db.Sequelize.fn("COUNT", db.Sequelize.col("id")), "cantidad"],
       ],
       where: {
+        sbn: { [Op.not]: null },
         tipo: {
           [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
         },
@@ -1314,7 +1629,6 @@ const getEstadisticasPorSubDependencia = async (req, res) => {
       order: [[db.Sequelize.col("sub_dependencia.nombre"), "ASC"]], // Ordenar alfabéticamente (ascendente)
       raw: true,
     });
-    
 
     // Total por tipo agrupado por subdependencia
     const totalPorTipoPorSubDependencia = await db.equipo.findAll({
@@ -1365,7 +1679,90 @@ const getEstadisticasPorSubDependencia = async (req, res) => {
   }
 };
 
+// const getEstadisticasPorSubDependencia = async (req, res) => {
+//   try {
+//     const fechaComparar = "2024-08-27 00:00:00";  // Asegúrate de definir esta variable
+//     const equipos = await db.equipo.findAll({
+//       attributes: [
+//         "procesador",
+//         [db.Sequelize.fn("COUNT", db.Sequelize.col("equipo.id")), "cantidad"],  // Especificar tabla `equipo.id`
+//       ],
+//       include: [
+//         {
+//           model: db.sedes, // Asegúrate que este sea el nombre correcto del modelo para "sedes"
+//           attributes: ["nombre"],
+//           as: "sede",
+//         },
+//         {
+//           model: db.sub_dependencias, // Verifica que este sea el nombre correcto del modelo para "sub_dependencias"
+//           attributes: ["nombre"],
+//           as: "sub_dependencia",
+//         },
+//       ],
+//       where: {
+//         sbn: { [Op.not]: null },
+//         tipo: {
+//           [Op.in]: ["Cpu", "Laptop"], // Incluir tanto Cpu como Laptop
+//         },
+//         [Op.or]: [
+//           {
+//             updatedAt: {
+//               [Op.gte]: fechaComparar,
+//             },
+//           },
+//           {
+//             createdAt: {
+//               [Op.gte]: fechaComparar,
+//             },
+//           },
+//         ],
+//         sede_id: { [Op.ne]: null }, // Asegura que solo se incluyan equipos con sede
+//         sub_dependencia_id: { [Op.ne]: null }, // Asegura que solo se incluyan equipos con subdependencia
+//       },
+//       group: ["sede.nombre", "sub_dependencia.nombre", "procesador", "equipo.id"], // Asegurarse de agrupar por `equipo.id`
+//       order: [
+//         [db.Sequelize.col("sede.nombre"), "ASC"],
+//         [db.Sequelize.col("sub_dependencia.nombre"), "ASC"],
+//       ],
+//       raw: true,
+//     });
+//     let tabla = {};
 
+//     equipos.forEach((item) => {
+//       let sede = item["sede.nombre"];
+//       let sub_dependencia = item["sub_dependencia.nombre"];
+//       let procesador = item.procesador;
+//       let cantidad = item.cantidad;
+
+//       if (!tabla[sede]) {
+//         tabla[sede] = {};
+//       }
+
+//       if (!tabla[sede][sub_dependencia]) {
+//         tabla[sede][sub_dependencia] = {
+//           "DUAL CORE": 0,
+//           "CORE 2 DUO": 0,
+//           "CORE 2 QUAD": 0,
+//           "CORE I3": 0,
+//           "CORE I5": 0,
+//           "CORE I7": 0,
+//           TOTAL: 0,
+//         };
+//       }
+
+//       if (tabla[sede][sub_dependencia][procesador] !== undefined) {
+//         tabla[sede][sub_dependencia][procesador] += cantidad;
+//         tabla[sede][sub_dependencia]["TOTAL"] += cantidad;
+//       }
+//     });
+
+//     console.log(tabla);
+//     res.json(tabla);
+//   } catch (error) {
+//     console.error("Error al obtener estadísticas:", error);
+//     res.status(500).json({ error: "Error al obtener estadísticas" });
+//   }
+// };
 
 module.exports = {
   getEquipo,
@@ -1384,5 +1781,5 @@ module.exports = {
   equiposBienesSigaComparar,
   getEquiposInventariados,
   getEstadisticasLincencias,
-  getEstadisticasPorSubDependencia
+  getEstadisticasPorSubDependencia, getEquipoSede
 };
