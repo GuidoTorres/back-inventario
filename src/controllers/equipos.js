@@ -318,32 +318,23 @@ const getEquiposInventariados = async (req, res) => {
     // Consulta para obtener los registros creados
     const equiposCreados = await db.equipo.findAll({
       where: {
-        createdAt: {
-          [Op.gte]: fechaComparar,
-        },
+        [Op.or]: [
+          {
+            createdAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+          {
+            updatedAt: {
+              [Op.gte]: fechaComparar,
+            },
+          },
+        ],
       },
     });
-
-    // Consulta para obtener los registros actualizados
-    const equiposActualizados = await db.equipo.findAll({
-      where: {
-        updatedAt: {
-          [Op.gte]: fechaComparar,
-        },
-      },
-    });
-
-    // Combinar ambos resultados en un solo array
-    const equiposCombinados = [...equiposCreados, ...equiposActualizados];
-
-    // Eliminar duplicados (en caso de que un registro esté en ambas listas)
-    const equiposUnicos = equiposCombinados.filter(
-      (equipo, index, self) =>
-        index === self.findIndex((e) => e.sbn === equipo.sbn)
-    );
 
     // Formatear los datos antes de enviarlos como respuesta
-    const format = equiposUnicos.map((item, i) => {
+    const format = equiposCreados.map((item, i) => {
       return {
         nro: i + 1,
         ...item.dataValues,
@@ -398,44 +389,8 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
     // Procesar cada fila en allRows
     for (const row of allRows) {
       const equipoData = {
-        tipo:
-          row["TIPO"] === "UNIDAD CENTRAL DE PROCESOS" ? "Cpu" : row["TIPO"],
-        subtipo_impresora: row["subtipo"] || null,
-        marca: row["MARCA"] || null,
-        sbn: row["SBN"] || null,
-        sbn_cpu: row["SBN - CPU"] || null,
-        procesador:
-          row["Procesador y Velocidad (I5, Core2 Dual, P4, P3) (GHZ, MHZ)"] ||
-          null,
-        generacion_procesador: row["GENERACION"] || null,
-        capacidad_disco_duro: row["ALMACENAMIENTO"] || null,
-        memoria_ram: row["Memoria (GB, MB)"] || null,
-        tarjeta_video: row["GRAFICA DEDICADA"] || null,
-        descripcion: row["TIPO"] || null,
-        trabajador_id: row["TRABAJADOR_ID"] || null,
-        modelo: row["MODELO"] || null,
-        usuario_actual: row["Usuario (Apellidos, Nombre)"] || null,
-        nombre_pc: row["Nombre  PC"] || null,
-        tipo_disco_duro: row["TIPO DISCO"] || null,
-        almacenamiento: row["ALMACENAMIENTO"] || null,
-        unidad_optica: row["UNIDAD OPTICA"] === "SI",
-        antivirus: row["ANTIVIRUS"] === "SI",
-        windows: row["WINDOWS"] === "SI",
-        version_windows: row["WINDOWS"] || null,
-        sistema_operativo: row["SISTEMA OPERATIVO"] || null,
-        ofimatica: row["OFIMATICA"] || null,
-        office: row["OFFICE"] || null,
-        mac: row["MAC"] || null,
-        suministro: row["SUMINISTRO"] || null,
-        tamaño: row["TAMAÑO"] || null,
-        ip: row["IP"] || null,
-        tecnologia_monitor: row["TECNOLOGIA_MONITOR"] || null,
-        pulgadas: row["PULGADAS"] || null,
-        anexo: row["ANEXO"] || null,
-        sede_id: row["SEDE"] || null,
-        modulo_id: row["MODULO"] || null,
-        dependencia_id: row["Area"] || null,
-        sub_dependencia_id: row["Oficina"] || null,
+        sbn: row["Cod. Patrimonio"] || null,
+        usuario_actual: row["USUARIO FINAL"] || null,
       };
 
       if (!equipoData.sbn) {
@@ -1781,5 +1736,6 @@ module.exports = {
   equiposBienesSigaComparar,
   getEquiposInventariados,
   getEstadisticasLincencias,
-  getEstadisticasPorSubDependencia, getEquipoSede
+  getEstadisticasPorSubDependencia,
+  getEquipoSede,
 };
