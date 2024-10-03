@@ -389,8 +389,41 @@ const actualizarEquiposDesdeExcel = async (filePath) => {
     // Procesar cada fila en allRows
     for (const row of allRows) {
       const equipoData = {
-        sbn: row["Cod. Patrimonio"] || null,
-        usuario_actual: row["USUARIO FINAL"] || null,
+        tipo:
+        row["TIPO"] === "UNIDAD CENTRAL DE PROCESOS" ? "Cpu" : row["TIPO"],
+      subtipo_impresora: row["subtipo"] || null,
+      marca: row["MARCA"] || null,
+      sbn: row["Co.Patrimonio"] || row["SBN"] || null,
+      sbn_cpu: row["SBN - CPU"] || null,
+      capacidad_disco_duro: row["ALMACENAMIENTO"] || null,
+      memoria_ram: row["Memoria (GB, MB)"] || null,
+      tarjeta_video: row["GRAFICA DEDICADA"] || null,
+      descripcion: row["TIPO"] || null,
+      trabajador_id: row["TRABAJADOR_ID"] || null,
+      modelo: row["MODELO"] || null,
+      usuario_actual: row["Usuario (Apellidos, Nombre)"] || null,
+      nombre_pc: row["Nombre  PC"] || null,
+      tipo_disco_duro: row["TIPO DISCO"] || null,
+      almacenamiento: row["ALMACENAMIENTO"] || null,
+      unidad_optica: row["UNIDAD OPTICA"] === "SI",
+      antivirus: row["ANTIVIRUS"] === "SI",
+      windows: row["WINDOWS"] === "SI",
+      version_windows: row["WINDOWS"] || null,
+      sistema_operativo: row["SISTEMA OPERATIVO"] || null,
+      ofimatica: row["OFIMATICA"] || null,
+      office: row["OFFICE"] || null,
+      mac: row["MAC"] || null,
+      suministro: row["SUMINISTRO"] || null,
+      tamaño: row["TAMAÑO"] || null,
+      ip: row["IP"] || null,
+      tecnologia_monitor: row["TECNOLOGIA_MONITOR"] || null,
+      pulgadas: row["PULGADAS"] || null,
+      anexo: row["ANEXO"] || null,
+      sede_id: row["SEDE"] || null,
+      modulo_id: row["MODULO"] || null,
+      dependencia_id: row["Area"] || null,
+      sub_dependencia_id: row["Oficina"] || null,
+      subtipo_impresora: row["SUB TIPO"] || null
       };
 
       if (!equipoData.sbn) {
