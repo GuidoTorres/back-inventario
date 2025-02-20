@@ -1,15 +1,13 @@
 const jwt = require('jsonwebtoken');
 
 const tokenSign = async (user) => {
-  console.log(user);
 
-  console.log(    process.env.JWT_SECRET    );
   return jwt.sign(
     {
       id: user.id,
       usuario: user.usuario,
     },
-    process.env.JWT_SECRET,
+    "123456",
     {
       expiresIn: "12h",
     }
@@ -17,7 +15,7 @@ const tokenSign = async (user) => {
 };
 const verifyToken = async (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET);
+    return jwt.verify(token, "123456");
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       const error = new Error("Token inválido");
