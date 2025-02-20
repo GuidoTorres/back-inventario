@@ -1,30 +1,36 @@
-// models/index.js
+// app/models/index.js
 
+const fs = require("fs");
+const path = require("path");
 const Sequelize = require("sequelize");
 const config = require("../../config/database.js");
-const sequelize = new Sequelize(config);
+
 const db = {};
+const sequelize = new Sequelize(config);
 
-// Usamos require.context para que Webpack conozca todos los archivos .js en este directorio
-const context = require.context(__dirname, false, /\.js$/);
+fs.readdirSync(__dirname)
+  .filter(file => {
+    // Excluir archivos que no sean .js o el propio index.js
+    return (
+      file.indexOf(".") !== 0 &&
+      file !== path.basename(__filename) &&
+      file.slice(-3) === ".js"
+    );
+  })
+  .forEach(file => {
+    const modelPath = path.join(__dirname, file);
+    // Se requiere el modelo y se le pasa la instancia de sequelize y los DataTypes
+    const model = require(modelPath)(sequelize, Sequelize.DataTypes);
+    db[model.name] = model;
+  });
 
-context.keys().forEach((file) => {
-  // Excluir este archivo actual (index.js)
-  if (file === "./index.js") return;
-  
-  // Cargamos el modelo pasándole la instancia de Sequelize y los DataTypes
-  const model = context(file)(sequelize, Sequelize.DataTypes);
-  db[model.name] = model;
-});
-
-// Configuramos las asociaciones (si las hay)
-Object.keys(db).forEach((modelName) => {
+// Configurar asociaciones (si existen)
+Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-// Exportamos la conexión y los modelos
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
