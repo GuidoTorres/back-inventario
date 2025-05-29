@@ -1180,142 +1180,61 @@ const getEquipoChart = async (req, res) => {
   }
 };
 
-//para el actualizar de los equipos nuevos y subirlos al inventario
 const equiposBienesSiga = async (req, res) => {
   try {
-    const response = await fetch("http://10.30.1.42:8084/api/v1/bienes/prueba");
-    const trabajadores = await db.trabajador.findAll({
-      attributes: ["id", "dni", "codigo"],
-    });
+    // 1) Ya vienen sólo los 2025 + prefijos
+    const response = await fetch("http://10.30.1.42:8084/api/v1/bienes/filtrados");
     const externalData = await response.json();
 
+    // 2) Traer trabajadores y montar el map
+    const trabajadores = await db.trabajador.findAll({ attributes: ["id","dni","codigo"] });
+    const trabajadorMap = new Map(trabajadores.map(t => [t.codigo, t.id]));
+
+    // 3) Traer equipos existentes
     const existingData = await db.equipo.findAll();
-    const existingMap = new Map(
-      existingData.map((item) => [item.secuencia, item])
-    );
+    const existingMap = new Map(existingData.map(e => [e.secuencia, e]));
 
-    // Crear un mapa de trabajadores para una búsqueda rápida
-    const trabajadorMap = new Map();
-    trabajadores.forEach((trabajador) => {
-      trabajadorMap.set(trabajador.codigo, trabajador.id);
-    });
-
-    const currentYear = new Date().getFullYear();
-
-    // Lista de prefijos SBN a filtrar
-    const sbnPrefixes = [
-      "74222358",
-      "95228627",
-      "74089500",
-      "74084100",
-      "74088187",
-      "74083200",
-      "95228287",
-      "74089950",
-      "95228117",
-      "95221467",
-      "74081850",
-      "95225812",
-      "74087700",
-      "74080500",
-      "74088224",
-      "95226644",
-      "74083650",
-      "95227834",
-      "74089556",
-      "95226742",
-      "74222726",
-      "74088037",
-      "74084550",
-      "74087250",
-      "95228363",
-      "74229950",
-      "95221561",
-      "95225815",
-      "74080050",
-      "95223791",
-      "74083875",
-      "74085000",
-      "74227274",
-      "95227536",
-      "95221470",
-      "74080950",
-      "74089200",
-      "95225907",
-      "95221816",
-      "95222166",
-      "95226115",
-      "74080275",
-      "95227044",
-    ];
-
-    // Filtrar y preparar los datos para crear o actualizar
+    // 4) Procesar sin volver a filtrar por prefijos
     const toCreate = [];
     const toUpdate = [];
 
-    externalData?.data?.forEach((item, index) => {
+    externalData.data.forEach(item => {
       const fechaIngreso = new Date(item.fecha_ingreso);
+      // opcional: filtrar sólo por año
+      if (fechaIngreso.getFullYear() !== new Date().getFullYear()) return;
+
       const trabajadorId = trabajadorMap.get(item.empleado_final) || null;
-
-      // Verificar si sbn existe antes de usar slice
-      const sbnPrefix = item.sbn ? item.sbn.slice(0, 8) : null;
-
-      const newItem = {
+      const nuevo = {
         ...item,
         trabajador_id: trabajadorId,
-        estado_conserv: item.estado_conserv, // Mapeo directo del estado_conserv del SIGA al estado de tu base de datos
+        estado_conserv: item.estado_conserv
       };
 
-      // Solo considerar los registros con fecha_ingreso en el año actual y que coincidan con los prefijos
-      if (
-        fechaIngreso.getFullYear() === currentYear &&
-        sbnPrefix &&
-        sbnPrefixes.includes(sbnPrefix)
-      ) {
-        if (existingMap.has(item.secuencia)) {
-          const existingItem = existingMap.get(item.secuencia);
-          // Verificar si hay cambios en los campos relevantes
-          if (
-            existingItem.estado !== newItem.estado || // Comparar estado con estado_conserv
-            existingItem.trabajador_id !== newItem.trabajador_id // Comparar trabajador_id con empleado_final
-          ) {
-            // Si hay cambios, agrega a la lista de actualizaciones
-            toUpdate.push(newItem);
-          }
-        } else {
-          // Si no existe, agregar a la lista de nuevos registros
-          toCreate.push(newItem);
+      if (existingMap.has(item.secuencia)) {
+        const orig = existingMap.get(item.secuencia);
+        if (
+          orig.estado       !== nuevo.estado_conserv ||
+          orig.trabajador_id!== nuevo.trabajador_id
+        ) {
+          toUpdate.push(nuevo);
         }
+      } else {
+        toCreate.push(nuevo);
       }
     });
 
+    // 5) Ordenar y dar IDs a los nuevos
     const dataToCreate = toCreate
-      .sort((a, b) => {
-        const dateDiff = new Date(b.fecha_ingreso) - new Date(a.fecha_ingreso);
-        if (dateDiff !== 0) {
-          return dateDiff; // Ordenar por fecha_ingreso si son diferentes
-        }
-        return b.secuencia - a.secuencia; // Si las fechas son iguales, ordenar por secuencia
-      })
-      .map((item, index) => {
-        return {
-          id: index + 1,
-          ...item,
-        };
-      });
+      .sort((a,b) => new Date(b.fecha_ingreso) - new Date(a.fecha_ingreso) || b.secuencia - a.secuencia)
+      .map((item,i) => ({ id: i+1, ...item }));
 
-    // Devolver los registros nuevos filtrados por año y prefijo SBN
-    return res.json({
-      data: dataToCreate,
-    });
+    return res.json({ data: dataToCreate });
   } catch (error) {
-    // Manejar errores
-    console.log(error);
-    res
-      .status(500)
-      .json({ message: "Error fetching data", error: error.message });
+    console.error(error);
+    return res.status(500).json({ message: "Error fetching data", error: error.message });
   }
 };
+
 
 const equiposBienesSigaComparar = async (req, res) => {
   try {
