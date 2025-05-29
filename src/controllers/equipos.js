@@ -1180,30 +1180,42 @@ const getEquipoChart = async (req, res) => {
   }
 };
 
+
 const equiposBienesSiga = async (req, res) => {
   try {
-    // 1) Ya vienen sólo los 2025 + prefijos
-    const response = await fetch("http://10.30.1.42:8084/api/v1/bienes/filtrados");
-    const externalData = await response.json();
+    // 1) Traer datos ya filtrados de 2025 + prefijos del endpoint remoto
+    const response = await fetch(
+      'http://10.30.1.42:8084/api/v1/bienes/filtrados?anio=2025'
+    );
+    if (!response.ok) {
+      throw new Error(`SIGA respondió con status ${response.status}`);
+    }
+    const { data: externalData } = await response.json();
 
-    // 2) Traer trabajadores y montar el map
-    const trabajadores = await db.trabajador.findAll({ attributes: ["id","dni","codigo"] });
-    const trabajadorMap = new Map(trabajadores.map(t => [t.codigo, t.id]));
+    // 2) Cargar trabajadores y mapear POR DNI (campo 'dni')
+    const trabajadores = await db.trabajador.findAll({
+      attributes: ['id', 'dni']
+    });
+    const trabajadorMap = new Map(
+      trabajadores.map(t => [t.dni, t.id])
+    );
 
-    // 3) Traer equipos existentes
+    // 3) Cargar los equipos existentes y hacer un Map por 'secuencia'
     const existingData = await db.equipo.findAll();
-    const existingMap = new Map(existingData.map(e => [e.secuencia, e]));
+    const existingMap = new Map(
+      existingData.map(e => [e.secuencia, e])
+    );
 
-    // 4) Procesar sin volver a filtrar por prefijos
+    const currentYear = new Date().getFullYear();
     const toCreate = [];
     const toUpdate = [];
 
-    externalData.data.forEach(item => {
-      const fechaIngreso = new Date(item.fecha_ingreso);
-      // opcional: filtrar sólo por año
-      if (fechaIngreso.getFullYear() !== new Date().getFullYear()) return;
-
-      const trabajadorId = trabajadorMap.get(item.empleado_final) || null;
+    console.log(externalData);
+    
+    // 4) Procesar cada registro
+    externalData.forEach(item => {
+      const trabajadorId = trabajadorMap.get(item.docum_ident) || null;
+      
       const nuevo = {
         ...item,
         trabajador_id: trabajadorId,
@@ -1212,26 +1224,37 @@ const equiposBienesSiga = async (req, res) => {
 
       if (existingMap.has(item.secuencia)) {
         const orig = existingMap.get(item.secuencia);
+        // Si cambió estado o trabajador, incluir en actualizaciones
         if (
-          orig.estado       !== nuevo.estado_conserv ||
-          orig.trabajador_id!== nuevo.trabajador_id
+          orig.estado        !== nuevo.estado_conserv ||
+          orig.trabajador_id !== nuevo.trabajador_id
         ) {
           toUpdate.push(nuevo);
         }
       } else {
+        // Nuevo equipo
         toCreate.push(nuevo);
       }
     });
 
-    // 5) Ordenar y dar IDs a los nuevos
+    // 5) Ordenar los nuevos y asignarles un id incremental
     const dataToCreate = toCreate
-      .sort((a,b) => new Date(b.fecha_ingreso) - new Date(a.fecha_ingreso) || b.secuencia - a.secuencia)
-      .map((item,i) => ({ id: i+1, ...item }));
+      .sort((a, b) => {
+        const diff = new Date(b.fecha_ingreso) - new Date(a.fecha_ingreso);
+        return diff !== 0 ? diff : b.secuencia - a.secuencia;
+      })
+      .map((item, idx) => ({
+        id: idx + 1,
+        ...item
+      }));
 
     return res.json({ data: dataToCreate });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error fetching data", error: error.message });
+    console.error('Error en equiposBienesSiga:', error);
+    return res.status(500).json({
+      message: 'Error fetching data',
+      error: error.message
+    });
   }
 };
 
