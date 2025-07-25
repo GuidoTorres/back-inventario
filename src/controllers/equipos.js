@@ -9,17 +9,61 @@ const fechaComparar = "2024-08-27 00:00:00";
 
 const getEquipo = async (req, res) => {
   try {
-    const equipo = await db.equipo.findAll({});
+    const { page = 1, limit = 10, search = '', tipo = '', estado = '' } = req.query;
+    const offset = (page - 1) * limit;
 
-    const format = equipo.map((item, i) => {
-      return {
-        nro: i + 1,
-        ...item.dataValues,
-      };
+    // Construir condiciones de búsqueda de forma segura
+    const whereConditions = { [Op.and]: [] };
+
+    if (search) {
+      whereConditions[Op.and].push({
+        [Op.or]: [
+          { sbn: { [Op.like]: `%${search}%` } },
+          { marca: { [Op.like]: `%${search}%` } },
+          { descripcion: { [Op.like]: `%${search}%` } },
+          { modelo: { [Op.like]: `%${search}%` } }
+        ]
+      });
+    }
+
+    if (tipo) {
+      whereConditions[Op.and].push({ tipo: tipo });
+    }
+
+    if (estado) {
+      whereConditions[Op.and].push({ estado_conserv: estado });
+    }
+
+    // Si no hay condiciones, eliminamos el array `Op.and` para obtener todos los registros
+    if (whereConditions[Op.and].length === 0) {
+      delete whereConditions[Op.and];
+    }
+
+    const { count, rows: equipo } = await db.equipo.findAndCountAll({
+      where: whereConditions,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['id', 'ASC']],
+      raw: true
     });
-    return res.json({ data: format });
+
+    const format = equipo.map((item, i) => ({
+      nro: offset + i + 1,
+      ...item
+    }));
+    
+    return res.json({ 
+      data: format,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
     console.log(error);
+    return res.status(500).json({ message: "Error al obtener equipos" });
   }
 };
 
@@ -315,36 +359,65 @@ const getEquipoSede = async (req, res) => {
 
 const getEquiposInventariados = async (req, res) => {
   try {
-    // Consulta para obtener los registros creados
-    const equiposCreados = await db.equipo.findAll({
-      where: {
+    const { page = 1, limit = 10, search = '', tipo = '', estado = '' } = req.query;
+    const offset = (page - 1) * limit;
+
+    // ✅ Lógica de condiciones refactorizada
+    const whereConditions = {
+      [Op.and]: [
+        {
+          [Op.or]: [
+            { createdAt: { [Op.gte]: fechaComparar } },
+            { updatedAt: { [Op.gte]: fechaComparar } }
+          ]
+        }
+      ]
+    };
+
+    if (search) {
+      whereConditions[Op.and].push({
         [Op.or]: [
-          {
-            createdAt: {
-              [Op.gte]: fechaComparar,
-            },
-          },
-          {
-            updatedAt: {
-              [Op.gte]: fechaComparar,
-            },
-          },
-        ],
-      },
+          { sbn: { [Op.like]: `%${search}%` } },
+          { marca: { [Op.like]: `%${search}%` } },
+          { descripcion: { [Op.like]: `%${search}%` } },
+          { modelo: { [Op.like]: `%${search}%` } }
+        ]
+      });
+    }
+
+    if (tipo) {
+      whereConditions[Op.and].push({ tipo: tipo });
+    }
+
+    if (estado) {
+      whereConditions[Op.and].push({ estado_conserv: estado });
+    }
+
+    const { count, rows: equiposCreados } = await db.equipo.findAndCountAll({
+      where: whereConditions,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['updatedAt', 'DESC']],
+      raw: true
     });
 
-    // Formatear los datos antes de enviarlos como respuesta
-    const format = equiposCreados.map((item, i) => {
-      return {
-        nro: i + 1,
-        ...item.dataValues,
-      };
-    });
+    const format = equiposCreados.map((item, i) => ({
+      nro: offset + i + 1,
+      ...item
+    }));
 
-    return res.json({ data: format });
+    return res.json({ 
+      data: format,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ message: "Error al obtener los equipos" });
+    return res.status(500).json({ message: "Error al obtener equipos inventariados" });
   }
 };
 
@@ -521,14 +594,102 @@ const postEquipo = async (req, res) => {
   }
 };
 
+// Función para determinar el tipo de equipo basándose en la descripción
+const determinarTipoEquipo = (descripcion) => {
+  if (!descripcion) return null;
+  
+  // Normalizamos: sin tildes y en mayúsculas
+  const desc = descripcion
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  // Diccionario de tipos → palabras clave (basado en los tipos exactos del select)
+  const TIPO_KEYWORDS = {
+    "Impresora": ["IMPRESORA", "LASER", "PLOTTER", "SCANNER", "CAPTURADOR DE IMAGEN"],
+    "Monitor": ["MONITOR", "LED"],
+    "Laptop": ["LAPTOP", "PORTATIL", "NOTEBOOK", "COMPUTADORA PERSONAL PORTATIL"],
+    "Teclado": ["TECLADO", "KEYBOARD"],
+    "Mouse": ["MOUSE", "RATON"],
+    "Servidor": ["SERVIDOR"],
+    "Proyector": ["PROYECTOR"],
+    "Cpu": ["CPU", "UNIDAD CENTRAL DE PROCESO"],
+    "Disco Duro": ["DISCO DURO", "ALMACENAMIENTO", "SSD", "HDD"],
+    "Estabilizador": ["ESTABILIZADOR"],
+    "Switch": ["SWITCH", "PUERTOS"],
+    "Router": ["ROUTER", "RADIOENLACE"],
+    "Lector de cd": ["LECTOR DE CD", "LECTORA", "CD-ROM"],
+    "Telefono": ["TELEFONO"],
+    "Access point": ["ACCESS POINT", "PUNTO DE ACCESO", "INALAMBRICO", "WIRELESS"],
+  };
+
+  // Buscar coincidencias
+  for (const [tipo, keywords] of Object.entries(TIPO_KEYWORDS)) {
+    if (keywords.some(keyword => desc.includes(keyword))) {
+      return tipo;
+    }
+  }
+  
+  // Si no encuentra coincidencia, revisar casos especiales
+  if (desc.includes("CAMARA") || desc.includes("VIDEO") || desc.includes("IP")) {
+    return "Access point"; // O crear un nuevo tipo "Camara" si es necesario
+  }
+  
+  // Por defecto
+  return "Cpu"; // Valor por defecto más común
+};
+
 const postVariosEquipo = async (req, res) => {
   try {
-    await db.equipo.bulkCreate(req.body);
+    console.log('=== INICIO postVariosEquipo ===');
+    console.log('Datos recibidos en req.body:', JSON.stringify(req.body, null, 2));
+    console.log('Cantidad de elementos recibidos:', req.body.length);
 
+    const equiposParaCrear = req.body.map((item, index) => {
+      console.log(`\n--- Procesando item ${index + 1} ---`);
+      console.log('Item original:', JSON.stringify(item, null, 2));
+      
+      const descripcion = item.descripcion || item.DESCRIPCION;
+      const tipoEquipo = determinarTipoEquipo(descripcion);
+      
+      const equipoMapeado = {
+        sbn: item.sbn || item.SBN,
+        descripcion: descripcion,
+        marca: item.marca || item.MARCA,
+        modelo: item.modelo || item.MODELO,
+        estado_conserv: item.estado_conserv || item.ESTADO_CONSERV,
+        trabajador_id: item.trabajador_id,
+        fecha_ingreso: item.fecha_ingreso,
+        estado: item.estado || 'Nuevo',
+        secuencia: item.secuencia || item.SECUENCIA,
+        proveedor: item.proveedor || item.PROVEEDOR,
+        tipo: tipoEquipo,
+      };
+      
+      console.log('Tipo determinado:', tipoEquipo, 'para descripción:', descripcion);
+      console.log('Item mapeado:', JSON.stringify(equipoMapeado, null, 2));
+      return equipoMapeado;
+    });
+
+    console.log('\n=== DATOS FINALES PARA CREAR ===');
+    console.log('equiposParaCrear:', JSON.stringify(equiposParaCrear, null, 2));
+
+    const resultado = await db.equipo.bulkCreate(equiposParaCrear);
+    console.log('Resultado de bulkCreate:', resultado.length, 'registros creados');
+
+    // Verificar que se guardaron correctamente
+    const ultimosEquipos = await db.equipo.findAll({
+      order: [['id', 'DESC']],
+      limit: equiposParaCrear.length
+    });
+    console.log('Últimos equipos guardados:', JSON.stringify(ultimosEquipos, null, 2));
+
+    console.log('=== FIN postVariosEquipo ===');
     return res.status(200).json({ msg: "Registrado con éxito!" });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ msg: "No se pudo registrar." });
+    console.error('ERROR en postVariosEquipo:', error);
+    console.error('Stack trace:', error.stack);
+    return res.status(500).json({ msg: "No se pudo registrar.", error: error.message });
   }
 };
 const updateEquipo = async (req, res) => {
@@ -1182,78 +1343,79 @@ const getEquipoChart = async (req, res) => {
 
 const equiposBienesSiga = async (req, res) => {
   try {
-    // 1) Traer solo los bienes de 2025 cuyo CODIGO_ACTIVO ya fue filtrado en el endpoint remoto
+    console.log('=== INICIO equiposBienesSiga ===');
+    
+    // 1) Traer todos los bienes del año actual desde el endpoint remoto
     const year = new Date().getFullYear();
-    const url  = `http://10.30.1.42:8084/api/v1/bienes/filtrados?anio=${year}`;
+    const url = `http://10.30.1.42:8084/api/v1/bienes/filtrados?anio=${year}`;
+    console.log('URL de SIGA:', url);
+    
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`SIGA respondió con status ${response.status}`);
     }
     const { data: externalData } = await response.json();
+    console.log('Datos externos recibidos:', externalData.length, 'registros');
+    console.log('Primeros 3 registros externos:', JSON.stringify(externalData.slice(0, 3), null, 2));
 
-    // 2) Cargar todos los trabajadores y mapear POR DNI (campo 'dni')
-    const trabajadores = await db.trabajador.findAll({
-      attributes: ['id','dni']
+    // 2) Obtener todos los SBN de los equipos existentes en la base de datos local
+    const existingEquipos = await db.equipo.findAll({
+      attributes: ['sbn'],
+      raw: true
     });
+    console.log('Equipos existentes en BD local:', existingEquipos.length);
+    console.log('Primeros 10 SBNs existentes:', existingEquipos.slice(0, 10).map(e => e.sbn));
+    
+    const existingSBNs = new Set(existingEquipos.map(e => e.sbn));
+    console.log('Set de SBNs existentes creado, tamaño:', existingSBNs.size);
+
+    // 3) Filtrar los datos externos para excluir los que ya existen en la BD local
+    console.log('\n--- PROCESO DE FILTRADO ---');
+    const newData = externalData.filter((item, index) => {
+      const codigoActivo = item.CODIGO_ACTIVO;
+      const existe = existingSBNs.has(codigoActivo);
+      
+      if (index < 5) { // Log de los primeros 5 para debug
+        console.log(`Item ${index}: CODIGO_ACTIVO=${codigoActivo}, existe=${existe}`);
+      }
+      
+      return !existe;
+    });
+    
+    console.log('Datos después del filtrado:', newData.length, 'registros nuevos');
+    console.log('Registros filtrados (ya existen):', externalData.length - newData.length);
+
+    // 4) Cargar todos los trabajadores y mapearlos por DNI
+    const trabajadores = await db.trabajador.findAll({
+      attributes: ['id', 'dni']
+    });
+    console.log('Trabajadores cargados:', trabajadores.length);
+    
     const trabajadorMap = new Map(
       trabajadores.map(t => [t.dni, t.id])
     );
 
-    // 3) Cargar los equipos existentes y mapear POR 'secuencia'
-    const existingData = await db.equipo.findAll();
-    const existingMap  = new Map(
-      existingData.map(e => [e.secuencia, e])
-    );
-
-    // 4) Clasificar en 'toCreate' y 'toUpdate'
-    const toCreate = [];
-    const toUpdate = [];
-
-    externalData.forEach(item => {
-      // (opcional) filtrar por año de ingreso si aún lo necesitas
-      if (item.fecha_ingreso) {
-        const ingresoYear = new Date(item.fecha_ingreso).getFullYear();
-        if (ingresoYear !== year) return;
-      }
-
+    // 5) Procesar y enriquecer los datos nuevos
+    const toCreate = newData.map((item, idx) => {
       const trabajadorId = trabajadorMap.get(item.docum_ident) || null;
-      const nuevo = {
+      return {
+        id: idx + 1, // Asignar un ID temporal para el frontend
         ...item,
         trabajador_id: trabajadorId,
-        estado_conserv: item.estado_conserv
+        SBN: item.CODIGO_ACTIVO // Renombrar para consistencia en el frontend
       };
-
-      if (existingMap.has(item.secuencia)) {
-        const orig = existingMap.get(item.secuencia);
-        // si cambió estado o trabajador, lo marcamos para update
-        if (
-          orig.estado        !== nuevo.estado_conserv ||
-          orig.trabajador_id !== nuevo.trabajador_id
-        ) {
-          toUpdate.push(nuevo);
-        }
-      } else {
-        // nuevo equipo
-        toCreate.push(nuevo);
-      }
     });
 
-    // 5) Ordenar 'toCreate' y asignar id incremental
-    const dataToCreate = toCreate
-      .sort((a, b) => {
-        // primero por fecha_ingreso (desc), luego por secuencia
-        const diff = new Date(b.fecha_ingreso) - new Date(a.fecha_ingreso);
-        return diff !== 0 ? diff : b.secuencia - a.secuencia;
-      })
-      .map((item, idx) => ({
-        id: idx + 1,
-        ...item
-      }));
+    console.log('Datos finales para enviar al frontend:', toCreate.length, 'registros');
+    console.log('Primeros 2 registros finales:', JSON.stringify(toCreate.slice(0, 2), null, 2));
+    console.log('=== FIN equiposBienesSiga ===');
 
     // 6) Devolver solo los nuevos registros para crear
-    return res.json({ data: dataToCreate });
+    return res.json({ data: toCreate });
+
   } catch (error) {
-    console.error('Error en equiposBienesSiga:', error);
+    console.error('ERROR en equiposBienesSiga:', error);
+    console.error('Stack trace:', error.stack);
     return res.status(500).json({
       message: 'Error fetching data',
       error: error.message
